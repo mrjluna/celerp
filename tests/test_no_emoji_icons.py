@@ -32,26 +32,7 @@ ALLOWED_IN_CODE: dict[str, int] = {
     "ui/routes/settings_connectors.py": 7,
 }
 
-# Remaining locale-only emoji are removed in the following wording batch.
-ALLOWED_IN_STRINGS: frozenset[str] = frozenset({
-    'acct.cf_methods_disagree',
-    'acct.imbalance_detected',
-    'acct.out_of_balance',
-    'ai.attached_files',
-    'ai.scenario_batch_bills_user',
-    'ai.scenario_bulk_catalog_reply',
-    'ai.scenario_bulk_catalog_user',
-    'ai.scenario_discrepancy_audit_reply',
-    'ai.scenario_reconcile_user',
-    'ai.scenario_smart_restock_reply',
-    'btn._print_labels',
-    'doc._labels',
-    'inv.hero_product_image',
-    'page._access_celerp_from_anywhere',
-    'settings._changing_the_database_requires_a_restart_and_data',
-    'settings._cost_price_is_tracked_peritem_from_purchase_docum',
-    'settings._default',
-})
+ALLOWED_IN_STRINGS: frozenset[str] = frozenset()
 
 
 def _emoji(text: str) -> list[str]:
