@@ -529,6 +529,16 @@ _LIST_TYPE_LABEL_KEYS = {"quotation": "settings_sales.doc_type_quotation",
                          "shipping_doc": "settings_sales.doc_type_shipping_doc"}
 
 
+def _lists_page_heading(list_type: str | None, lang: str | None = None) -> str:
+    """The lists page heading: Quotations, or the type the page is filtered to (Stock Counts,
+    Transfer Order, ...), so a filtered page never calls its documents quotations."""
+    if not list_type or list_type == "quotation":
+        return t("page.lists", lang)
+    if list_type == "audit":
+        return t("nav.audits", lang)
+    return _list_type_label(list_type)
+
+
 def _list_type_label(list_type: str | None) -> str:
     """The list type's name in the request language."""
     key = _LIST_TYPE_LABEL_KEYS.get(list_type or "", f"enum.list_type.{list_type}")
@@ -4756,7 +4766,7 @@ celerpUpdateBulkAlloc();
         return await base_shell(
             Div(
                 list_page_header(
-                    t("page.lists", lang),
+                    _lists_page_heading(list_type, lang),
                     _new_btn if role_has_permission(_settings, _role, "edit_documents") else "",
                     export_link,
                     A(import_icon(), t("btn.import"), href="/lists/import", cls="btn btn--secondary", data_import_hint=True) if role_has_permission(_settings, _role, "import_export_data") else "",
@@ -11202,7 +11212,10 @@ async function celerpCsvImport(input, entityId) {{
                     cls="editable-cell editable-cell--locked") if is_draft
                 else _cell("ref_id", ref),
                 cls="meta-cell"),
-            Div(Div(t("doc.reference"), cls="meta-label"), _cell("reference", doc.get("reference")), cls="meta-cell"),
+            # Sales documents carry the customer's reference; purchasing ones the vendor's own.
+            Div(Div(t("label.reference") + ":" if doc_type in ("purchase_order", "bill", "consignment_in", "debit_note")
+                    else t("doc.reference"), cls="meta-label"),
+                _cell("reference", doc.get("reference")), cls="meta-cell"),
             (Div(Div(t("doc.original_label", doc_type=doc_type_label(original.get("doc_type", ""))), cls="meta-label"),
                  A(original.get("ref_id") or original.get("doc_number") or doc["original_doc_id"],
                    href=doc_href(doc["original_doc_id"])),
