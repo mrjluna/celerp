@@ -577,8 +577,9 @@ def _notes_tab(contact_id: str, notes: list[dict], tz: str = "UTC", *, read_only
 
 def _contact_ledger_table(ledger: list[dict], docs_on: bool) -> FT:
     """Activity history section for contact detail page."""
-    from ui.components.activity import activity_table
-    return activity_table(ledger, max_display=10, docs_on=docs_on)
+    from ui.components.activity import history_table
+    return history_table(ledger, max_display=10, docs_on=docs_on, section_cls="section",
+                         empty_msg=t("activity.empty"))
 
 
 def _contacts_bulk_toolbar() -> FT:

@@ -2007,7 +2007,8 @@ def setup_routes(app):
     @app.get("/inventory/{entity_id}/history")
     async def item_history_page(request: Request, entity_id: str):
         """Full, paginated activity history for one item (the Activity tab shows only the
-        most recent; this is the 'see all' surface). Reuses activity_table + pagination."""
+        most recent; this is the 'see all' surface). The shared History table, filtered by Event,
+        Field and Who from the URL and paged here over the item's history."""
         token = _token(request)
         if not token:
             return RedirectResponse("/login", status_code=302)
@@ -2020,7 +2021,7 @@ def setup_routes(app):
         try:
             item, company, category_names = await asyncio.gather(
                 api.get_item(token, entity_id), api.get_company(token), api.get_category_labels(token))
-            resp = await api.list_ledger(token, {"entity_id": entity_id, "limit": per_page, "offset": offset})
+            resp = await api.list_ledger(token, {"entity_id": entity_id, "limit": 1000})
         except (APIError, Exception) as e:
             if isinstance(e, APIError) and e.status == 401:
                 return RedirectResponse("/login", status_code=302)
@@ -2028,16 +2029,23 @@ def setup_routes(app):
 
         currency = company.get("currency")
         activities = resp.get("items", [])
-        total = resp.get("total", 0)
         name = item.get("name") or item.get("sku") or entity_id
 
-        from ui.components.activity import activity_table
+        from urllib.parse import urlencode
+        from ui.components.activity import HISTORY_FILTERS, filter_history, history_rows, history_table
+        filters = {k: request.query_params.get(k) for k in HISTORY_FILTERS if request.query_params.get(k)}
         deleted_parents = await deleted_items(token, [item.get("split_from"), item.get("transformed_from")])
-        table = activity_table(activities, title="", section_cls="", subject_entity_id=entity_id,
-                               currency=currency, category_names=category_names, resizable=True,
-                               deleted=deleted_parents, docs_on=can_open(company, "celerp-docs"))
+        rows = history_rows(activities, subject_entity_id=entity_id, currency=currency,
+                            category_names=category_names, deleted=deleted_parents,
+                            docs_on=can_open(company, "celerp-docs"))
+        shown = filter_history(rows, filters)
+        total = len(shown)
+        table = history_table([], rows=rows, page_rows=shown[offset:offset + per_page], filters=filters,
+                              filter_url=f"/inventory/{entity_id}/history", section_cls="section",
+                              show_header=False)
         pages = max(1, (total + per_page - 1) // per_page)
-        pager = pagination(page, total, per_page, f"/inventory/{entity_id}/history") if pages > 1 else ""
+        pager = pagination(page, total, per_page, f"/inventory/{entity_id}/history",
+                           extra_params=urlencode(filters)) if pages > 1 else ""
 
         return await base_shell(
             breadcrumbs([(t("nav.dashboard"), "/dashboard"), (t("nav.inventory"), "/inventory"),
@@ -7838,11 +7846,11 @@ def _undo_merge_block(entity_id: str, ledger: list[dict]) -> FT | str:
 def _ledger_table(ledger: list[dict], entity_id: str | None = None, currency: str | None = None,
                   category_names: dict | None = None, deleted: dict[str, dict] | None = None,
                   docs_on: bool = False) -> FT:
-    from ui.components.activity import activity_table
+    from ui.components.activity import history_table
     history_url = f"/inventory/{entity_id}/history" if entity_id else None
-    return activity_table(ledger, max_display=10, subject_entity_id=entity_id, currency=currency,
-                          category_names=category_names, history_url=history_url, resizable=True, deleted=deleted,
-                          docs_on=docs_on)
+    return history_table(ledger, max_display=10, subject_entity_id=entity_id, currency=currency,
+                         category_names=category_names, history_url=history_url, deleted=deleted,
+                         docs_on=docs_on, section_cls="section", empty_msg=t("activity.empty"))
 
 
 # ---------------------------------------------------------------------------

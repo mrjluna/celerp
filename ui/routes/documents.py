@@ -44,7 +44,6 @@ from celerp.services.permissions import missing_permission_text, role_has_permis
 from ui.components.import_access import can_import_documents
 from ui.module_slots import connected_connector_ids, required_connectors, visible_slot_contributions
 from celerp.output.document_context import prepare_document_output
-from ui.components.activity import activity_table
 from ui.components.notes import notes_tab as _shared_notes_tab, note_edit_form as _shared_note_edit_form
 from ui.components.files import files_error, files_section as _shared_doc_files_section, files_session_expired
 from ui.components.doc_money import ATTRS as DOC_MONEY_ATTRS, redraw_trigger as doc_money_redraw
@@ -4646,51 +4645,47 @@ celerpUpdateBulkAlloc();
         # CSS querySelectorAll. Use a safe slug for the DOM id.
         safe_id = entity_id.replace(":", "-").replace("/", "-")
         _DEFAULT_PER_PAGE = 10
+        from urllib.parse import parse_qsl, urlencode, urlsplit
+        from ui.components.activity import HISTORY_FILTERS, filter_history, history_rows, history_table
+        qp = request.query_params
+        # The filters ride in the document page's URL. The card's first load reads them from it
+        # (HX-Current-URL); a filter or page change sends them along and pushes them back.
+        current = urlsplit(request.headers.get("HX-Current-URL") or "")
+        page_params = dict(parse_qsl(current.query)) if current.path == f"/docs/{entity_id}" else {}
+        filters = {k: (qp.get(k) if k in qp else page_params.get(k, "")) for k in HISTORY_FILTERS}
+        filters = {k: v for k, v in filters.items() if v}
         try:
             page = _page_number(request)
         except ValueError:
             page = 1
-        per_page = per_page_value(request.query_params.get("per_page"), _DEFAULT_PER_PAGE)
+        per_page = per_page_value(qp.get("per_page"), _DEFAULT_PER_PAGE)
         offset = (page - 1) * per_page
         try:
-            resp = await api.list_ledger(token, {"entity_id": entity_id, "limit": per_page, "offset": offset, "resolve": "true"})
+            # A document's whole history (filters and their choices cover all of it), paged here.
+            resp = await api.list_ledger(token, {"entity_id": entity_id, "limit": 500, "resolve": "true"})
             entries = resp.get("items", []) if isinstance(resp, dict) else []
-            total = int(resp.get("total", len(entries))) if isinstance(resp, dict) else len(entries)
         except Exception:
-            entries, total = [], 0
+            entries = []
         category_names = await api.get_category_labels(token)
-        from ui.components.activity import format_timestamp, detail_from_entry, _event_display, actor_label
-        EMPTY = "--"
-        def _row(e: dict):
-            display_text, url = _event_display(e)
-            event_cell = Td(A(display_text, href=url, cls="table-link") if url else display_text)
-            ts_display = format_timestamp(str(e.get("ts") or "")) or EMPTY
-            data = e.get("data") or {}
-            raw_type = str(e.get("event_type") or "")
-            # A Documents page: it opens only while the company can open Documents.
-            detail = detail_from_entry(data, raw_type, category_names=category_names, docs_on=True) if isinstance(data, dict) else ""
-            return Tr(event_cell, Td(ts_display), Td(actor_label(e)), Td(detail or EMPTY))
-        rows = [_row(e) for e in entries]
+        # A Documents page: it opens only while the company can open Documents.
+        rows = history_rows(entries, category_names=category_names, docs_on=True)
+        shown = filter_history(rows, filters)
+        dom_id = f"doc-history-{safe_id}"
+        filter_qs = urlencode(filters)
         footer = server_pager(
-            offset, per_page, total,
-            lambda o, l: f"/docs/{entity_id}/history?page={o // l + 1}&per_page={l}",
-            page_sizes=(10, 20, 50, 100), hx_target=f"#doc-history-{safe_id}",
+            offset, per_page, len(shown),
+            lambda o, l: f"/docs/{entity_id}/history?page={o // l + 1}&per_page={l}" + (f"&{filter_qs}" if filter_qs else ""),
+            page_sizes=(10, 20, 50, 100), hx_target=f"#{dom_id}",
         )
-        if not entries and page == 1:
-            content = P(t("documents.no_activity_recorded"), cls="empty-state-msg")
-        else:
-            content = Table(
-                Thead(Tr(Th(t("th.event")), Th(t("th.when")), Th(t("documents.th_who")), Th(t("th.details")))),
-                Tbody(*rows),
-                cls="data-table",
-            )
-        return Div(
-            Div(Span(icon("history"), cls="section-icon"), H3(t("documents.history"), cls="section-title"), cls="section-header"),
-            content,
-            footer,
-            id=f"doc-history-{safe_id}",
-            cls="doc-section",
-        )
+        card = history_table([], rows=rows, page_rows=shown[offset:offset + per_page], filters=filters,
+                             filter_url=f"/docs/{entity_id}/history", filter_target=f"#{dom_id}",
+                             footer=footer, section_id=dom_id)
+        headers = {}
+        if "hist_event" in qp or "hist_field" in qp or "hist_who" in qp:
+            kept = {k: v for k, v in page_params.items() if k not in HISTORY_FILTERS}
+            query = urlencode({**kept, **filters})
+            headers["HX-Push-Url"] = f"/docs/{entity_id}" + (f"?{query}" if query else "")
+        return _R(to_xml(card), media_type="text/html", headers=headers)
 
     @app.get("/docs/{entity_id}/files/_section")
     async def doc_files_section(request: Request, entity_id: str):
@@ -11426,18 +11421,6 @@ def _doc_gl_impact_section(data: dict, entity_id: str, currency: str | None) -> 
                 Tbody(*rows), cls="data-table"),
             cls="gl-impact-block"))
     return Div(heading, *tables, id=_gl_impact_dom_id(entity_id), cls="doc-section")
-
-
-def _doc_history_section(ledger: list[dict]) -> FT:
-    """Render a timeline of ledger events for a document. Legacy: used by non-paginated callers."""
-    return activity_table(
-        ledger,
-        title=t("documents.history"),
-        section_cls="doc-section",
-        icon="\U0001f4dc",
-        empty_msg=t("documents.no_activity_recorded"),
-        max_display=20,
-    )
 
 
 # A status card: its label, colour, the list filter its link applies and how it reads its count

@@ -1258,7 +1258,8 @@ class TestActivityFeed:
             "data": {"fields_changed": {"status": {"old": "active", "new": "reserved"}}},
         }]))
         assert "2026-03-20" in html
-        assert "Status: active → reserved" in html
+        assert '<td class="col-field">Status</td>' in html  # History: one row per field change
+        assert ">active<" in html and ">reserved<" in html
         assert "—" not in html.split("2026-03-20")[0]  # timestamp cell is not blank
 
     def test_ledger_table_empty(self):
@@ -3683,7 +3684,7 @@ class TestPhase2DeepPolish:
         """H7: full paginated item history page (the Activity tab's 'see all' surface)."""
         events = [{"id": i, "event_type": "item.created", "entity_id": "gc:123",
                    "ts": "2026-06-21T10:00:00+00:00", "data": {"sku": "S", "name": "n"}}
-                  for i in range(50)]
+                  for i in range(120)]
         ui_client.cookies.update(_authed())
         with (
             patch("ui.api_client.get_item", new=AsyncMock(return_value=_ITEM)),
@@ -15865,7 +15866,7 @@ class TestBugFixesBatch25Mar6Bugs:
         ledger = [{"event_type": "item.updated", "ts": "2026-03-25T10:00:00", "data": {}, "actor_id": "user:admin"}]
         html = to_xml(_ledger_table(ledger))
         assert "user:admin" in html
-        assert "User" in html
+        assert ">Who<" in html
 
     # Bug 6: Bulk split sends only 1 child
     @pytest.mark.asyncio

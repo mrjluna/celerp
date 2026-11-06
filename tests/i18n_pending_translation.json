@@ -48,6 +48,26 @@
     "documents.gl_impact_void": {
       "en": "Void",
       "params": []
+    },
+    "activity.history_no_match": {
+      "en": "No history matches these filters.",
+      "params": []
+    },
+    "activity.filter_any": {
+      "en": "Any",
+      "params": []
+    },
+    "activity.th_new_value": {
+      "en": "New value",
+      "params": []
+    },
+    "activity.th_field": {
+      "en": "Field",
+      "params": []
+    },
+    "activity.th_old_value": {
+      "en": "Old value",
+      "params": []
     }
   }
 }
