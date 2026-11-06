@@ -7119,5 +7119,19 @@
   "company.err_price_list_base_factor": "{name}は基準価格表なので、係数を設定できません。",
   "company.err_price_list_rounding_needs_factor": "{name}の端数処理には係数が必要です。係数を追加するか、端数処理を解除してください。",
   "company.err_price_list_rounding": "{name}の端数処理の値は0より大きく、{max}以下の数値である必要があります。",
-  "company.err_price_list_cost_name": "{name}はCelerpが原価用に予約している名前です。各会社には、品目ごとの原価を表示する「原価」価格表がすでにあります。この価格表には別の名前を付けてください。"
+  "company.err_price_list_cost_name": "{name}はCelerpが原価用に予約している名前です。各会社には、品目ごとの原価を表示する「原価」価格表がすでにあります。この価格表には別の名前を付けてください。",
+  "date.month_short_9": "Sep",
+  "documents.gl_impact_entry_for": "Journal entry for {ref}, {date}",
+  "date.month_short_2": "Feb",
+  "date.month_short_7": "Jul",
+  "documents.gl_impact_balanced": "Balanced",
+  "date.month_short_12": "Dec",
+  "date.month_short_3": "Mar",
+  "date.month_short_10": "Oct",
+  "date.month_short_4": "Apr",
+  "date.month_short_11": "Nov",
+  "date.month_short_5": "May",
+  "date.month_short_6": "Jun",
+  "date.month_short_1": "Jan",
+  "date.month_short_8": "Aug"
 }

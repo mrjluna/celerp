@@ -20,6 +20,7 @@ from urllib.parse import parse_qsl, quote_plus, urlencode
 
 import ui.api_client as api
 from ui.components.icons import icon, import_icon
+from ui.components.activity import fmt_qty
 from ui.api_client import APIError, error_message
 from celerp.accounting_roles import account_label
 from celerp.downloads import content_disposition
@@ -11385,40 +11386,74 @@ def _gl_impact_dom_id(entity_id: str) -> str:
 _POSTING_DOC_TYPES = ("invoice", "credit_note", "debit_note", "bill")
 
 
+def _readable_date(value) -> str:
+    """An ISO date or timestamp as "28 Oct 2026", the month in the reader's language."""
+    text = str(value or "")[:10]
+    try:
+        y, m, d = (int(p) for p in text.split("-"))
+    except ValueError:
+        return text
+    return f"{d} {t(f'date.month_short_{m}')} {y}"
+
+
+def _gl_line_item(ln: dict) -> str:
+    """What a journal line is for: the item, its quantity and unit, never the entry's raw memo."""
+    if not ln.get("item"):
+        return EMPTY
+    qty = ln.get("quantity")
+    if qty is None:
+        return str(ln["item"])
+    unit = display_unit(ln.get("unit")) if ln.get("unit") and ln.get("unit") != "piece" else ""
+    return f"{ln['item']} \u00d7 {fmt_qty(qty)}{' ' + unit if unit else ''}"
+
+
 def _doc_gl_impact_section(data: dict, entity_id: str, currency: str | None) -> FT:
     """The journal entries a document posted, as the books hold them: one table per
     entry, so each balances on its own and links back to the journal."""
     entries = data.get("entries") or []
-    heading = Div(H3(t("documents.gl_impact"), cls="section-title"), cls="section-header")
+    heading = Div(Span(icon("book-open"), cls="section-icon"), H3(t("documents.gl_impact"), cls="section-title"),
+                  cls="section-header")
     if not entries:
         draft = str(data.get("status") or "").lower() == "draft" and data.get("doc_type") in _POSTING_DOC_TYPES
         body = P(t("documents.gl_impact_not_posted" if draft else "documents.gl_impact_none"), cls="empty-state-msg")
         return Div(heading, body, id=_gl_impact_dom_id(entity_id), cls="doc-section")
+    doc_ref = str(data.get("doc_ref") or "")
     tables = []
     for e in entries:
         voided = e.get("status") == "void"
         rows = []
+        debit_total = credit_total = Decimal(0)
         for ln in e.get("lines") or []:
-            memo = e.get("memo") or ""
-            if ln.get("item"):
-                memo = f"{ln['item']} x {ln.get('quantity')}" if ln.get("quantity") is not None else str(ln["item"])
+            debit_total += Decimal(str(ln.get("debit") or 0))
+            credit_total += Decimal(str(ln.get("credit") or 0))
             rows.append(Tr(
                 Td(f"{ln.get('account')} {ln.get('name') or ''}".strip()),
                 Td(fmt_money(ln["debit"], currency) if ln.get("debit") else EMPTY, cls="cell--number"),
                 Td(fmt_money(ln["credit"], currency) if ln.get("credit") else EMPTY, cls="cell--number"),
                 Td(ln.get("party_name") or EMPTY),
-                Td(memo or EMPTY),
+                Td(_gl_line_item(ln)),
             ))
-        link = A(e.get("je_id") or "", href="/accounting?q=" + quote_plus(str((e.get("source_doc") or {}).get("doc_ref") or e.get("je_id") or "")),
-                 cls="table-link")
+        balanced = debit_total == credit_total
+        ref = str((e.get("source_doc") or {}).get("doc_ref") or doc_ref or "")
+        title = t("documents.gl_impact_entry_for", ref=ref, date=_readable_date(e.get("ts"))) if ref \
+            else _readable_date(e.get("ts"))
+        link = A(title, href="/accounting?q=" + quote_plus(ref or str(e.get("je_id") or "")), cls="table-link",
+                 title=str(e.get("je_id") or ""))
         tables.append(Div(
-            Div(link, Span(f" {e.get('ts') or ''}"),
-                Span(f" {t('documents.gl_impact_void')}", cls="badge") if voided else "", cls="gl-impact-entry"),
+            Div(link, Span(t("documents.gl_impact_void"), cls="badge") if voided else "", cls="gl-impact-entry"),
             Table(
                 Thead(Tr(Th(t("documents.gl_impact_account")), Th(t("documents.gl_impact_debit"), cls="cell--number"),
                          Th(t("documents.gl_impact_credit"), cls="cell--number"), Th(t("documents.gl_impact_party")),
-                         Th(t("documents.gl_impact_memo")))),
-                Tbody(*rows), cls="data-table"),
+                         Th(t("th.item")))),
+                Tbody(*rows),
+                Tfoot(Tr(
+                    Td(t("th.total"), cls="gl-impact-total-label"),
+                    Td(fmt_money(float(debit_total), currency), cls="cell--number"),
+                    Td(fmt_money(float(credit_total), currency), cls="cell--number"),
+                    Td(Span(t("documents.gl_impact_balanced" if balanced else "acct.out_of_balance"),
+                            cls="badge badge--accepted" if balanced else "badge badge--danger"), colspan="2"),
+                    cls="gl-impact-totals")),
+                cls="data-table doc-card-table"),
             cls="gl-impact-block"))
     return Div(heading, *tables, id=_gl_impact_dom_id(entity_id), cls="doc-section")
 

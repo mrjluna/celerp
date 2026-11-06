@@ -7119,5 +7119,19 @@
   "company.err_price_list_base_factor": "{name} adalah daftar harga dasar sehingga tidak dapat memiliki faktor.",
   "company.err_price_list_rounding_needs_factor": "Pembulatan pada {name} memerlukan faktor. Tambahkan faktor atau hapus pembulatannya.",
   "company.err_price_list_rounding": "Nilai pembulatan untuk {name} harus berupa angka lebih besar dari 0 dan tidak lebih dari {max}.",
-  "company.err_price_list_cost_name": "{name} adalah nama yang dicadangkan Celerp untuk biaya. Setiap perusahaan sudah memiliki daftar Biaya yang menampilkan biaya setiap barang. Berikan nama lain untuk daftar ini."
+  "company.err_price_list_cost_name": "{name} adalah nama yang dicadangkan Celerp untuk biaya. Setiap perusahaan sudah memiliki daftar Biaya yang menampilkan biaya setiap barang. Berikan nama lain untuk daftar ini.",
+  "date.month_short_9": "Sep",
+  "documents.gl_impact_entry_for": "Journal entry for {ref}, {date}",
+  "date.month_short_2": "Feb",
+  "date.month_short_7": "Jul",
+  "documents.gl_impact_balanced": "Balanced",
+  "date.month_short_12": "Dec",
+  "date.month_short_3": "Mar",
+  "date.month_short_10": "Oct",
+  "date.month_short_4": "Apr",
+  "date.month_short_11": "Nov",
+  "date.month_short_5": "May",
+  "date.month_short_6": "Jun",
+  "date.month_short_1": "Jan",
+  "date.month_short_8": "Aug"
 }

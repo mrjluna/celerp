@@ -7119,5 +7119,19 @@
   "company.err_price_list_base_factor": "{name} est la liste de prix de base et ne peut donc pas avoir de coefficient.",
   "company.err_price_list_rounding_needs_factor": "L'arrondi de {name} nécessite un coefficient. Ajoutez-en un ou désactivez l'arrondi.",
   "company.err_price_list_rounding": "La valeur d'arrondi de {name} doit être un nombre supérieur à 0 et inférieur ou égal à {max}.",
-  "company.err_price_list_cost_name": "{name} est un nom réservé par Celerp pour le coût. Chaque entreprise dispose déjà de la liste « Coût », qui affiche le coût de chaque article. Donnez un autre nom à cette liste."
+  "company.err_price_list_cost_name": "{name} est un nom réservé par Celerp pour le coût. Chaque entreprise dispose déjà de la liste « Coût », qui affiche le coût de chaque article. Donnez un autre nom à cette liste.",
+  "date.month_short_9": "Sep",
+  "documents.gl_impact_entry_for": "Journal entry for {ref}, {date}",
+  "date.month_short_2": "Feb",
+  "date.month_short_7": "Jul",
+  "documents.gl_impact_balanced": "Balanced",
+  "date.month_short_12": "Dec",
+  "date.month_short_3": "Mar",
+  "date.month_short_10": "Oct",
+  "date.month_short_4": "Apr",
+  "date.month_short_11": "Nov",
+  "date.month_short_5": "May",
+  "date.month_short_6": "Jun",
+  "date.month_short_1": "Jan",
+  "date.month_short_8": "Aug"
 }

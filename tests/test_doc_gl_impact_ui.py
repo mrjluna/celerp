@@ -64,11 +64,33 @@ _POSTED = {
 def test_posted_document_lists_accounts_party_items_and_journal_links():
     html = to_xml(_doc_gl_impact_section(_POSTED, "doc:inv-1", "USD"))
     for expected in ("1120 Accounts Receivable", "4100 Sales", "5100 Cost of Goods Sold", "Acme Ltd",
-                     "Widget x 2", "je:auto:doc:inv-1", "je:auto:doc:inv-1:fulfill", t("documents.gl_impact_void")):
+                     "Widget \u00d7 2", "je:auto:doc:inv-1", "je:auto:doc:inv-1:fulfill", t("documents.gl_impact_void")):
         assert expected in html, expected
     assert "/accounting?q=INV-1" in html
     # A line with no resolvable party name shows an empty cell, never the raw contact id.
     assert "contact:1" not in html
+
+
+def test_each_entry_is_headed_by_its_document_and_date_not_its_journal_key():
+    html = to_xml(_doc_gl_impact_section(_POSTED, "doc:inv-1", "USD"))
+    assert ">Journal entry for INV-1, 1 Feb 2026<" in html and ">Journal entry for INV-1, 2 Feb 2026<" in html
+    # The key stays reachable as the link's tooltip, never as the heading.
+    assert 'title="je:auto:doc:inv-1"' in html and ">je:auto:doc:inv-1<" not in html
+
+
+def test_each_entry_totals_its_debits_and_credits_and_says_whether_it_balances():
+    html = to_xml(_doc_gl_impact_section(_POSTED, "doc:inv-1", "USD"))
+    first, second = html.split('class="gl-impact-block"')[1:3]
+    assert "$100.00" in first.split("<tfoot>")[1] and ">Balanced<" in first
+    assert f">{t("acct.out_of_balance")}<" in second  # a one-sided entry is flagged, never hidden
+
+
+def test_a_line_names_its_item_with_quantity_and_unit_not_the_raw_memo():
+    data = {**_POSTED, "entries": [{**_POSTED["entries"][0], "lines": [
+        {**_POSTED["entries"][0]["lines"][1], "quantity": 1.5, "unit": "kg"},
+        {**_POSTED["entries"][0]["lines"][0]}]}]}
+    html = to_xml(_doc_gl_impact_section(data, "doc:inv-1", "USD"))
+    assert "Widget \u00d7 1.5" in html and "Invoice INV-1</td>" not in html
 
 
 def test_draft_invoice_says_it_is_not_posted_yet():
