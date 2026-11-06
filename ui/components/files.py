@@ -8,6 +8,7 @@ Single source for document tag slugs via _DOCUMENT_TAGS.
 """
 from __future__ import annotations
 
+from ui.components.icons import icon
 from fasthtml.common import *
 
 from ui.components.attrs import hx_vals
@@ -447,7 +448,7 @@ def files_section(
             if is_image:
                 hero_cell = Td(
                     Button(
-                        "⭐" if is_hero else "☆",
+                        Span(icon("star"), cls="file-hero-star file-hero-star--on" if is_hero else "file-hero-star"),
                         hx_post=f"{file_action_base}/{fid}/hero",
                         hx_target=f"#files-section-{sid}",
                         hx_swap="outerHTML",
@@ -586,7 +587,7 @@ def files_section(
 """
 
     upload_zone = Div(
-        Div("📁", cls="file-drop-icon"),
+        Div(icon("folder"), cls="file-drop-icon"),
         Div(t("msg.drop_files_here"), cls="file-drop-text"),
         Input(type="file", id=f"file-drop-input-{sid}", style="display:none"),
         # On a phone this opens the camera, so a receipt is photographed straight into

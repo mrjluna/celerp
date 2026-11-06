@@ -3019,12 +3019,12 @@ def _sidebar(active: str, lang: str = "en", role: str = "owner", request=None, s
     settings_link = []
     if role_has_permission(settings, role, "manage_company_settings"):
         settings_link.append(
-            A(t("nav.company_details", lang), href="/finance/company-details",
+            A(Span(icon("building"), cls="nav-link__icon"), t("nav.company_details", lang), href="/finance/company-details",
               title=t("nav.company_details_tip", lang),
               cls=f"nav-link {'nav-link--active' if active == 'company-details' else ''}"),
         )
     settings_link.append(
-        A(t("nav.settings", lang), href="/settings/general",
+        A(Span(icon("settings"), cls="nav-link__icon"), t("nav.settings", lang), href="/settings/general",
           title=t("nav.settings_tip", lang),
           cls=f"nav-link {'nav-link--active' if active == 'settings' else ''}"),
     )
@@ -3032,18 +3032,18 @@ def _sidebar(active: str, lang: str = "en", role: str = "owner", request=None, s
     # Global Config and Web Access.
     if role_has_permission(settings, role, "manage_company_settings"):
         settings_link.append(
-            A(t("nav.modules", lang), href="/modules",
+            A(Span(icon("puzzle"), cls="nav-link__icon"), t("nav.modules", lang), href="/modules",
               title=t("nav.modules_tip", lang),
               cls=f"nav-link {'nav-link--active' if active == 'modules' else ''}"),
         )
         settings_link.append(
-            A(t("nav.doctor", lang), href="/doctor",
+            A(Span(icon("stethoscope"), cls="nav-link__icon"), t("nav.doctor", lang), href="/doctor",
               title=t("nav.doctor_tip", lang),
               cls=f"nav-link {'nav-link--active' if active == 'doctor' else ''}"),
         )
     if role_has_permission(settings, role, "manage_integrations"):
         settings_link.append(
-            A(t("msg._web_access", lang), href="/settings/cloud",
+            A(Span(icon("globe"), cls="nav-link__icon"), t("msg._web_access", lang), href="/settings/cloud",
               title=t("nav.web_access_tip", lang),
               cls=f"nav-link {'nav-link--active' if active == 'web-access' else ''}"),
         )

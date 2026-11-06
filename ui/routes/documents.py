@@ -19,7 +19,7 @@ from starlette.responses import RedirectResponse
 from urllib.parse import parse_qsl, quote_plus, urlencode
 
 import ui.api_client as api
-from ui.components.icons import import_icon
+from ui.components.icons import icon, import_icon
 from ui.api_client import APIError, error_message
 from celerp.accounting_roles import account_label
 from celerp.downloads import content_disposition
@@ -1102,7 +1102,7 @@ def _item_link_eye(entity_id: str, title: str | None = None) -> FT:
     active = bool(entity_id)
     if title is None:
         title = t("documents.view_item_details")
-    return A("👁", href=f"/inventory/{entity_id}" if active else "#",
+    return A(icon("eye"), href=f"/inventory/{entity_id}" if active else "#",
              target="_blank" if active else "",
              cls="item-link item-link--active" if active else "item-link item-link--inactive",
              data_name="item_link",
@@ -1139,7 +1139,7 @@ _DOC_TYPE_INTRO: dict[str, str] = {
 
 def _doc_type_intro(doc_type: str) -> FT:
     key = _DOC_TYPE_INTRO.get(doc_type)
-    return Div(Span("ℹ️", cls="info-banner-icon"), Span(t(key)), cls="info-banner") if key else ""
+    return Div(Span(icon("info"), cls="info-banner-icon"), Span(t(key)), cls="info-banner") if key else ""
 
 
 _DOC_TYPE_NEW_LABEL_KEYS: dict[str, str] = {
@@ -4685,7 +4685,7 @@ celerpUpdateBulkAlloc();
                 cls="data-table",
             )
         return Div(
-            Div(Span("📜", cls="section-icon"), H3(t("documents.history"), cls="section-title"), cls="section-header"),
+            Div(Span(icon("history"), cls="section-icon"), H3(t("documents.history"), cls="section-title"), cls="section-header"),
             content,
             footer,
             id=f"doc-history-{safe_id}",
@@ -6272,7 +6272,7 @@ def _payment_section(doc: dict, bank_accounts: list[dict] | None = None, is_oper
         elif p.get("unmatched") and is_operator:
             # Recorded here from the unmatched payments: taking it off puts it back on that list.
             void_cell = Td(Details(
-                Summary("🗑", cls="btn btn--ghost btn--xs", title=t("documents.return_to_unmatched")),
+                Summary(icon("trash"), cls="btn btn--ghost btn--xs", title=t("documents.return_to_unmatched")),
                 Form(
                     Input(type="hidden", name="payment_index", value=str(p.get("index", 0))),
                     operation_key_input(),
@@ -6306,7 +6306,7 @@ def _payment_section(doc: dict, bank_accounts: list[dict] | None = None, is_oper
                 Span(t("documents.stripe_released"), cls="text-muted small") if p.get("stripe_released_at") else "",
                 refund_form,
                 Details(
-                    Summary("🗑", cls="btn btn--ghost btn--xs", title=t("documents.void_this_payment")),
+                    Summary(icon("trash"), cls="btn btn--ghost btn--xs", title=t("documents.void_this_payment")),
                     Form(
                         Input(type="hidden", name="payment_index", value=str(p.get("index", 0))),
                         operation_key_input(),
@@ -7817,7 +7817,7 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
                 Dialog(
                     Div(
                         H3(t("btn.send"), cls="modal-dialog__title"),
-                        Button("✕", type="button",
+                        Button(icon("x"), type="button",
                                onclick=f"document.getElementById('{modal_id}').close()",
                                cls="modal-dialog__close", aria_label=t("btn.close")),
                         cls="modal-dialog__header",
@@ -7964,7 +7964,7 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
             Dialog(
                 Div(
                     H3(t("btn.share"), cls="modal-dialog__title"),
-                    Button("✕", type="button",
+                    Button(icon("x"), type="button",
                            onclick=f"document.getElementById('{_share_modal_id}').close()",
                            cls="modal-dialog__close", aria_label=t("btn.close")),
                     cls="modal-dialog__header",
@@ -8625,7 +8625,7 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
         if doc_type in ("bill", "expense") and _ai_loaded:
             _ai_dropzone = [
                 Div(
-                    Div("✨", cls="ai-dropzone__icon"),
+                    Div(icon("sparkles"), cls="ai-dropzone__icon"),
                     Div(t("documents.ai_dropzone_text"), cls="ai-dropzone__text"),
                     Div(t("doc.powered_by_celerp_ai_operator"), cls="ai-dropzone__sub"),
                     cls="ai-dropzone",
@@ -8680,7 +8680,7 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
             # (_celerpApplyDefaultTaxes), which a removal on the page can change live.
             Template(_li_empty_row(None), id="line-row-tpl"),
             Div(
-                Span("📷", cls="scan-bar-icon"),
+                Span(icon("camera"), cls="scan-bar-icon"),
                 Input(type="text", id="scan-bar-input", placeholder=_scan_placeholder,
                       cls="scan-bar-input", autocomplete="off", autofocus=False),
                 # Scans accumulate as a comma list (Enter appends a comma, never a request) and the
@@ -9350,11 +9350,12 @@ async function celerpAcSearch(input, field) {{
         }}
         const _expenseTypes = ['bill', 'purchase_order', 'consignment_in'];
         const _customLabel = _expenseTypes.includes(_CELERP_DOC_TYPE)
-            ? '✏ Use as expense: "' + q + '"'
-            : '✏ Use as custom entry: "' + q + '"';
+            ? 'Use as expense: "' + q + '"'
+            : 'Use as custom entry: "' + q + '"';
         const custom = document.createElement('div');
         custom.className = 'catalog-ac-option catalog-ac-option--custom';
-        custom.textContent = _customLabel;
+        custom.innerHTML = {_json.dumps(str(icon("pencil")) + " ")};
+        custom.append(document.createTextNode(_customLabel));
         custom.addEventListener('mousedown', e => {{
             e.preventDefault();
             list.style.display = 'none';
@@ -10255,7 +10256,7 @@ function _celerpShowReservedConflicts(conflicts) {{
     closeBtn.type = 'button';
     closeBtn.className = 'modal-dialog__close';
     closeBtn.setAttribute('aria-label', _L.close);
-    closeBtn.textContent = '✕';
+    closeBtn.innerHTML = {_json.dumps(str(icon("x")))};
     closeBtn.onclick = () => dlg.close();
     header.append(title, closeBtn);
     dlg.appendChild(header);
@@ -11060,7 +11061,7 @@ async function celerpCsvImport(input, entityId) {{
             # The pencil sits just LEFT of the "Total:" label; the amount stays flush-right
             # (accounting format).
             Span(
-                (Button("✎", type="button", cls="btn-disc-edit",
+                (Button(icon("pencil"), type="button", cls="btn-disc-edit",
                         title=t("documents.add_edit_discount"), aria_label=t("documents.add_edit_discount"),
                         onclick="celerpOpenDiscount()") if _can_discount else ""),
                 Span(t("doc.total"), cls="total-label total-label--final"),
@@ -11131,7 +11132,7 @@ async function celerpCsvImport(input, entityId) {{
 
     # Build contact detail rows - hide payment terms/outstanding for lists
     _contact_rows: list = [
-        Div(Span("👤", cls="section-icon"), H3(contact_label, cls="section-title"), cls="section-header"),
+        Div(Span(icon("user"), cls="section-icon"), H3(contact_label, cls="section-title"), cls="section-header"),
         Div(Div(t("doc.contact"), cls="form-label"), _cell("contact_id", contact_value), cls="form-group"),
         Div(Div(t("doc.company"), cls="form-label"), _cell("contact_company_name", doc.get("contact_company_name") or "--"), cls="form-group"),
         Div(Div(t("doc.address"), cls="form-label"), _cell("contact_billing_address", doc.get("contact_billing_address") or doc.get("contact_address")), cls="form-group"),
@@ -11222,7 +11223,7 @@ async function celerpCsvImport(input, entityId) {{
         # Company (left) + Contact/Ship To (right, stacked)
         Div(
             Div(
-                Div(Span("🏢", cls="section-icon"), H3(t("page.from"), cls="section-title"), cls="section-header"),
+                Div(Span(icon("building"), cls="section-icon"), H3(t("page.from"), cls="section-title"), cls="section-header"),
                 Div(Div(t("doc.company"), cls="form-label"), _cell("company_name", doc.get("company_name") or "--"), cls="form-group"),
                 Div(
                     Div(t("doc.address"), cls="form-label"),
@@ -11238,7 +11239,7 @@ async function celerpCsvImport(input, entityId) {{
             Div(
                 Div(*_contact_rows, cls="doc-section"),
                 Div(
-                    Div(Span("🚚", cls="section-icon"), H3(t("page.ship_to"), cls="section-title"), cls="section-header"),
+                    Div(Span(icon("truck"), cls="section-icon"), H3(t("page.ship_to"), cls="section-title"), cls="section-header"),
                     Div(Div(t("doc.address"), cls="form-label"),
                         _cell("contact_shipping_address", doc.get("contact_shipping_address") or "--")
                         if not is_draft and not is_list else
@@ -11258,7 +11259,7 @@ async function celerpCsvImport(input, entityId) {{
         # The draft carries EVERY field the printouts need (draft shows more, the
         # papers subtract), laid out as one unmissable grid.
         (Div(
-            Div(Span("📦", cls="section-icon"), H3(t("page.shipment"), cls="section-title"), cls="section-header"),
+            Div(Span(icon("package"), cls="section-icon"), H3(t("page.shipment"), cls="section-title"), cls="section-header"),
             P(t("shipment.section_hint"), cls="section-hint"),
             Div(*_shipment_fields(doc, entity_id, is_draft), cls="shipment-grid"),
             cls="doc-section",
@@ -11294,7 +11295,7 @@ async function celerpCsvImport(input, entityId) {{
         # section below instead.
         ("" if is_no_money else Div(
             Div(
-                Div(Span("📄", cls="section-icon"), H3(t("page.terms_conditions"), cls="section-title"), cls="section-header"),
+                Div(Span(icon("file-text"), cls="section-icon"), H3(t("page.terms_conditions"), cls="section-title"), cls="section-header"),
                 *(_tc_dropdown(entity_id, doc, tc_templates or [], doc_type, is_draft) if is_draft and not is_list else [
                     Div(Div(t("doc.template"), cls="form-label"), P(doc.get("terms_template") or "--", cls="meta-value"), cls="form-group"),
                 ]),
@@ -11310,7 +11311,7 @@ async function celerpCsvImport(input, entityId) {{
                 cls="doc-section doc-section--half",
             ),
             Div(
-                Div(Span("💬", cls="section-icon"), H3(t("page.note_to_customer"), cls="section-title"), cls="section-header"),
+                Div(Span(icon("message-square"), cls="section-icon"), H3(t("page.note_to_customer"), cls="section-title"), cls="section-header"),
                 Div(
                     Textarea(doc.get("customer_note") or "", name="customer_note", rows="4",
                              placeholder=t("documents.customer_note_placeholder"), cls="form-input",
@@ -11331,7 +11332,7 @@ async function celerpCsvImport(input, entityId) {{
             ),
             Div(
                 Div(
-                    Div(Span("📝", cls="section-icon"), H3(t("page.internal_notes"), cls="section-title"), cls="section-header"),
+                    Div(Span(icon("notebook-pen"), cls="section-icon"), H3(t("page.internal_notes"), cls="section-title"), cls="section-header"),
                     _shared_notes_tab(
                         entity_id=entity_id,
                         notes=notes or [],
@@ -11347,7 +11348,7 @@ async function celerpCsvImport(input, entityId) {{
                     id=f"notes-section-{_safe_id(entity_id)}",
                 ),
                 Div(
-                    Div(Span("🤝", cls="section-icon"), H3(t("page.sales_commissions"), cls="section-title"), cls="section-header"),
+                    Div(Span(icon("handshake"), cls="section-icon"), H3(t("page.sales_commissions"), cls="section-title"), cls="section-header"),
                     P(t("doc.commission_agent_and_fee_for_this_document_agent_m"), cls="section-hint"),
                     Div(Div(t("doc.commission_agent"), cls="form-label"), _cell("commission_contact_id", _resolve_contact_display(doc, "commission_contact_id")), cls="form-group"),
                     Div(Div(t("doc.commission"), cls="form-label"), _cell("commission_rate_pct", doc.get("commission_rate_pct")), cls="form-group"),

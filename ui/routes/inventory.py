@@ -25,7 +25,7 @@ import ui.api_client as api
 from ui.components.module_off import can_open
 from ui.components.deleted_items import deleted_items, deleted_label, is_deleted
 from ui.components.demo_items import DEMO_ITEMS_FILTER
-from ui.components.icons import import_icon
+from ui.components.icons import icon, import_icon
 from ui.api_client import APIError, _flatten_item_attrs, error_message
 from ui.components.files import files_error, files_section as _shared_files_section, files_session_expired
 from ui.components.operation_key import kept_operation_key, operation_key_vals, required_operation_key
@@ -604,7 +604,7 @@ def _split_table_form(preview: dict, *, action: str, target: str, form_id: str,
         if removable:
             label = t("inventory.child")
             trailing = Td(
-                Button("✕", type="button", cls="btn btn--ghost btn--xs split-remove-child-btn",
+                Button(icon("x"), type="button", cls="btn btn--ghost btn--xs split-remove-child-btn",
                        title=t("inventory.remove_child"),
                        onclick="var f=this.closest('form');var tr=this.closest('tr');if(tr)tr.remove();splitRecalc(f);"),
                 cls="sp-td sp-remove-td",
@@ -6411,7 +6411,7 @@ def _print_label_dropdown(entity_id: str) -> FT:
     """Print label icon button with HTMX-loaded template dropdown."""
     dropdown_id = f"print-label-dd-{entity_id.replace(':', '-')}"
     return Div(
-        Button("🖨",
+        Button(icon("printer"),
             cls="btn btn--secondary btn--icon",
             title=t("btn._print_labels"),
             onclick=f"var dd=document.getElementById('{dropdown_id}');dd.classList.toggle('open');",
@@ -8242,14 +8242,14 @@ function batchSplitSubmit_{safe_id}(form) {{
         )
     else:
         split_card = Div(
-            Strong(t("inv.u2702_split"), cls="action-card-title"),
+            Strong(icon("scissors"), " ", t("inv.u2702_split"), cls="action-card-title"),
             P(split_refusal, cls="action-card-hint"),
             cls="action-card action-card--disabled",
         )
 
     duplicate_card = Div(
         Form(
-            Strong(t("inv.u0001f4cb_duplicate"), cls="action-card-title"),
+            Strong(icon("copy"), " ", t("inv.u0001f4cb_duplicate"), cls="action-card-title"),
             Div(
                 Input(type="text", name="new_sku", placeholder=t("inventory.ph_new_sku"), cls="form-input form-input--sm"),
                 Button(t("btn.go"), type="submit", cls="btn btn--primary btn--xs"),
@@ -8264,7 +8264,7 @@ function batchSplitSubmit_{safe_id}(form) {{
 
     expire_card = Div(
         Form(
-            Strong(t("inv.u23f3_expire"), cls="action-card-title"),
+            Strong(icon("hourglass"), " ", t("inv.u23f3_expire"), cls="action-card-title"),
             Div(
                 Input(type="text", name="reason", placeholder=t("inventory.ph_reason"), cls="form-input form-input--sm"),
                 Button(t("btn.go"), type="submit", cls="btn btn--danger btn--xs"),
@@ -8279,7 +8279,7 @@ function batchSplitSubmit_{safe_id}(form) {{
 
     archive_card = Div(
         Form(
-            Strong(t("inv.u1f4e6_archive"), cls="action-card-title"),
+            Strong(icon("archive"), " ", t("inv.u1f4e6_archive"), cls="action-card-title"),
             Div(
                 Input(type="text", name="reason", placeholder=t("inventory.ph_reason"), cls="form-input form-input--sm"),
                 Button(t("btn.go"), type="submit", cls="btn btn--danger btn--xs"),
