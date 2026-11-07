@@ -27,6 +27,7 @@ from ui.components.deleted_items import deleted_items, deleted_label, is_deleted
 from ui.components.demo_items import DEMO_ITEMS_FILTER
 from ui.components.icons import icon, import_icon
 from ui.api_client import APIError, _flatten_item_attrs, error_message
+from ui.components.cards import section_card, section_header
 from ui.components.item_fields import item_detail_schema, item_display_values
 from ui.components.files import files_error, files_section as _shared_files_section, files_session_expired
 from ui.components.operation_key import kept_operation_key, operation_key_vals, required_operation_key
@@ -8212,17 +8213,25 @@ def _advanced_panel(entity_id: str, item: dict, split_preview: dict | None = Non
         _batch_qty_title   = t("inv.tooltip.batch_qty").replace("{unit}", sell_by_label)
         _batch_count_title = t("inv.tooltip.batch_count")
 
-        # Combined card: shared split table (Mother + N children) above, Batch Split below.
+        # One Split control with mutually exclusive manual and batch modes.
         split_card = Div(
-            _split_table_form(
+            Strong(icon("scissors"), " ", t("inv.u2702_split"), cls="action-card-title"),
+            Select(
+                Option(t("inventory.split_manual"), value="manual"),
+                Option(t("inv.batch_split"), value="batch"),
+                cls="form-input form-input--sm split-mode",
+                aria_label=t("inv.u2702_split"),
+                onchange="var c=this.closest('.split-control');c.querySelectorAll('[data-split-mode]').forEach(p=>p.hidden=p.dataset.splitMode!==this.value);",
+            ),
+            Div(_split_table_form(
                 split_preview,
                 action=f"/api/items/{entity_id}/split-inline",
                 target="#item-action-error",
                 form_id=f"split-form-{safe_id}",
                 allow_add_child=True,
                 child_sku_editable=False,
-            ),
-            Hr(cls="action-card-divider"),
+            ), data_split_mode="manual"),
+            Div(
             # Batch Split submits via JS; onsubmit guard blocks accidental Enter submission.
             Form(
                 Strong(t("inv.batch_split"), cls="action-card-title", style="margin-bottom:4px"),
@@ -8246,7 +8255,7 @@ def _advanced_panel(entity_id: str, item: dict, split_preview: dict | None = Non
                           step="1", min="2",
                           cls="form-input form-input--sm batch-split-count",
                           oninput=f"batchSplitPreview_{safe_id}(this.form)"),
-                    Button(t("th.batch"), type="button",
+                    Button(t("btn.confirm"), type="button",
                            title=t("inv.tooltip.batch_submit"),
                            cls="btn btn--primary btn--xs btn--batch-submit",
                            onclick=f"batchSplitSubmit_{safe_id}(this.closest('form'))"),
@@ -8255,6 +8264,7 @@ def _advanced_panel(entity_id: str, item: dict, split_preview: dict | None = Non
                 Div(id=f"batch-split-preview-{safe_id}", cls="batch-split-preview"),
                 Script(f"""
 function batchSplitPreview_{safe_id}(form) {{
+  form.querySelectorAll('input').forEach(el=>el.setCustomValidity(''));
   var qty   = parseFloat(form.querySelector('[name=batch_qty]').value)     || 0;
   var count = parseInt(form.querySelector('[name=batch_count]').value, 10) || 0;
   var avail = {current_qty};
@@ -8286,14 +8296,15 @@ function batchSplitSubmit_{safe_id}(form) {{
     {{ target: '#item-action-error', swap: 'outerHTML', values: vals }});
 }}
 """),
-                onsubmit="return false;",
+                onsubmit=f"batchSplitSubmit_{safe_id}(this);return false;",
+                onkeydown=f"if(event.key==='Enter'){{event.preventDefault();batchSplitSubmit_{safe_id}(this);}}",
                 **{
                     "data-exceeds-label": t("inventory.js_exceeds_available"),
                     "data-alert-qty": t("inventory.js_enter_valid_qty"),
                     "data-alert-count": t("inventory.count_min_two"),
                 },
-            ),
-            cls="action-card",
+            ), data_split_mode="batch", hidden=True),
+            cls="action-card split-control",
         )
     else:
         split_card = Div(
@@ -8326,6 +8337,7 @@ function batchSplitSubmit_{safe_id}(form) {{
                 cls="action-card-row",
             ),
             hx_post=f"/api/items/{entity_id}/expire",
+            hx_confirm=t("inventory.confirm_expire"),
             hx_target="#item-action-error",
             hx_swap="outerHTML",
         ),
@@ -8341,6 +8353,7 @@ function batchSplitSubmit_{safe_id}(form) {{
                 cls="action-card-row",
             ),
             hx_post=f"/api/items/{entity_id}/archive",
+            hx_confirm=t("inventory.confirm_archive"),
             hx_target="#item-action-error",
             hx_swap="outerHTML",
         ),
@@ -8394,6 +8407,7 @@ function batchSplitSubmit_{safe_id}(form) {{
                     ),
                     P(t("inventory.revert_no_history"), cls="action-card-hint"),
                     hx_post=f"/api/items/{entity_id}/revert-to-draft",
+            hx_confirm=t("inventory.confirm_revert_draft"),
                     hx_target="#item-action-error",
                     hx_swap="outerHTML",
                 ),
@@ -8439,13 +8453,14 @@ function batchSplitSubmit_{safe_id}(form) {{
             cls="action-card",
         )
 
-    return Div(
-        H3(t("th.actions"), cls="section-title"),
+    return section_card(
+        t("th.actions"),
         Span("", id="item-action-error"),
         Div(
             split_card,
             duplicate_card,
-            *lifecycle_cards,
+            Div(Strong(t("inventory.lifecycle_actions"), cls="action-card-title"),
+                *lifecycle_cards, cls="action-card") if lifecycle_cards else None,
             rtv_card,
             bbi_card,
             cls="action-cards-grid",
@@ -8453,6 +8468,8 @@ function batchSplitSubmit_{safe_id}(form) {{
         P(t("inv.to_merge_items_select_multiple_from_the_inventory"), cls="form-hint"),
         *([Div(*module_item_actions, cls="actions-group", style="margin-top:0.5rem")] if module_item_actions else []),
         id="item-advanced-panel",
-        cls="detail-card",
+        collapsible=True,
+        icon_name="scissors",
+        body_cls="recipe-block",
     )
 
