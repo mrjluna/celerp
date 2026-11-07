@@ -14874,7 +14874,7 @@ class TestDocumentsOverhaul:
 
     @pytest.mark.asyncio
     async def test_credit_note_shows_issue_credit_note(self, ui_client):
-        """Draft credit note shows 'Issue Credit Note'."""
+        """Draft credit note shows 'Issue Credit Memo'."""
         cn_doc = {**_BLANK_DOC, "doc_type": "credit_note", "entity_id": "doc:CN-001", "ref_id": "CN-001"}
         ui_client.cookies.update(_authed())
         with patch("ui.api_client.get_doc", new=AsyncMock(return_value=cn_doc)):
