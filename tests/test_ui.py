@@ -14879,7 +14879,7 @@ class TestDocumentsOverhaul:
         ui_client.cookies.update(_authed())
         with patch("ui.api_client.get_doc", new=AsyncMock(return_value=cn_doc)):
             r = await ui_client.get("/docs/doc:CN-001")
-        assert b"Issue Credit Note" in r.content
+        assert b"Issue Credit Memo" in r.content
 
     @pytest.mark.asyncio
     async def test_memo_shows_issue_memo(self, ui_client):

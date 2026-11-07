@@ -85,7 +85,7 @@ def test_create_credit_note_button_on_paid_invoice(page: Page, ui_server: str, a
     """CN-03: 'Create Credit Note' button visible on paid invoice."""
     inv_id = _create_paid_invoice(api, sku="CN03-W", amount=80.0)
     page.goto(f"{ui_server}/docs/{inv_id}", wait_until="domcontentloaded")
-    btn = page.locator("button", has_text="Create Credit Note")
+    btn = page.locator("button", has_text="Create Credit Memo")
     expect(btn).to_be_visible()
 
 
@@ -103,7 +103,7 @@ def test_create_credit_note_button_absent_on_final_invoice(page: Page, ui_server
     api.post(f"/docs/{inv_id}/finalize")
 
     page.goto(f"{ui_server}/docs/{inv_id}", wait_until="domcontentloaded")
-    btn = page.locator("button", has_text="Create Credit Note")
+    btn = page.locator("button", has_text="Create Credit Memo")
     expect(btn).to_have_count(0)
 
 

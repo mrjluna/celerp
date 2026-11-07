@@ -2255,8 +2255,8 @@ async def write_doc_patch(session: AsyncSession, company_id, role: str, settings
         if has_issued_note or has_active_application or tied_note:
             raise HTTPException(status_code=409, detail=refusal(
                 "docs.contact_credit_fixed",
-                "This document has an issued or applied credit note. Undo its credit applications and "
-                "void or revert the linked credit note before changing the contact."))
+                "This document has an issued or applied credit memo. Undo its credit applications and "
+                "void or revert the linked credit memo before changing the contact."))
     if selecting:
         client_values = {k: (v or {}).get("new") for k, v in fields_changed.items()}
         selection = await _contact_selection_values(
@@ -2776,8 +2776,8 @@ async def finalize_document(
         # lots at cost; a note issued by hand only adjusts a price or a charge.
         raise HTTPException(status_code=409, detail=refusal(
             "debit_note.stock_line",
-            "Goods on this line are in stock. Use Return items on the bill so they leave stock; a supplier "
-            "credit note adjusts a price or a charge only."))
+            "Goods on this line are in stock. Use Return items on the bill so they leave stock; a vendor "
+            "credit memo adjusts a price or a charge only."))
 
     # Invoices: assign real INV number on finalize, preserving PF ref.
     # On re-finalize (after revert-to-draft) the doc already holds the INV ref
@@ -3125,12 +3125,12 @@ def credit_note_currency(invoice_state: dict, base_currency: str, currency, rate
             rate_text = f"{float(inv_rate):g}"
             raise HTTPException(status_code=422, detail=refusal(
                 "credit_note.currency_differs_rate",
-                f"A credit note reverses its invoice's sale in the invoice's currency and rate: invoice {number} "
+                f"A credit memo reverses its invoice's sale in the invoice's currency and rate: invoice {number} "
                 f"is in {inv_currency} at rate {rate_text}. Leave the currency and rate as the invoice's.",
                 invoice=number, currency=inv_currency, rate=rate_text))
         raise HTTPException(status_code=422, detail=refusal(
             "credit_note.currency_differs",
-            f"A credit note reverses its invoice's sale in the invoice's currency and rate: invoice {number} "
+            f"A credit memo reverses its invoice's sale in the invoice's currency and rate: invoice {number} "
             f"is in {inv_currency}. Leave the currency and rate as the invoice's.",
             invoice=number, currency=inv_currency))
     out = {"currency": inv_currency}
@@ -3206,19 +3206,19 @@ async def credit_note_original(session, company_id, data: dict, *, for_update: b
     if not state:
         raise HTTPException(status_code=422, detail=refusal(
             "credit_note.original_missing",
-            f"This credit note names {number} as the invoice it credits, but no document {number} exists in "
-            f"this company. Create or import that invoice here first, then the credit note.", invoice=number))
+            f"This credit memo names {number} as the invoice it credits, but no document {number} exists in "
+            f"this company. Create or import that invoice here first, then the credit memo.", invoice=number))
     if state.get("doc_type") != "invoice":
         raise HTTPException(status_code=422, detail=refusal(
             "credit_note.original_not_invoice",
-            f"This credit note names {number}, which is not an invoice. A credit note credits an invoice: "
+            f"This credit memo names {number}, which is not an invoice. A credit memo credits an invoice: "
             f"choose the invoice it credits. To reduce what a bill owes, return the goods on the bill.",
             document=number))
     if state.get("status") in (None, "draft"):
         raise HTTPException(status_code=422, detail=refusal(
             "credit_note.original_not_issued",
-            f"This credit note credits invoice {number}, which is still a draft. Finalize the invoice first, "
-            f"then the credit note.", invoice=number))
+            f"This credit memo credits invoice {number}, which is still a draft. Finalize the invoice first, "
+            f"then the credit memo.", invoice=number))
     return row
 
 
@@ -3242,7 +3242,7 @@ async def supplier_credit_original(session, company_id, data: dict, *, for_updat
             or (data.get("currency") or state.get("currency")) != state.get("currency")):
         raise HTTPException(status_code=409, detail=refusal(
             "debit_note.original_mismatch",
-            f"A supplier credit note is issued against an issued bill or purchase order from the same supplier, "
+            f"A vendor credit memo is issued against an issued bill or purchase order from the same supplier, "
             f"in the same currency. {number} is not one: choose another bill, or leave the bill empty.",
             document=number))
     return row
@@ -3261,8 +3261,8 @@ async def refuse_on_void_invoice(session, company_id, cn: dict) -> None:
     inv_number = str(invoice.state.get("doc_number") or invoice.state.get("ref_id") or original)
     raise HTTPException(status_code=409, detail=refusal(
         "credit_note.invoice_void",
-        f"Credit note {number} credits invoice {inv_number}, which is void. The sale no longer exists, "
-        f"so nothing is refunded, applied or restored against the credit note.",
+        f"Credit memo {number} credits invoice {inv_number}, which is void. The sale no longer exists, "
+        f"so nothing is refunded, applied or restored against the credit memo.",
         credit_note=number, invoice=inv_number))
 
 
@@ -3324,11 +3324,11 @@ async def check_imported_snapshot(session, company_id, entity_id: str, data: dic
             raise HTTPException(status_code=422, detail=refusal(
                 "doc_import.paid_over_total",
                 f"Invoice {number} says {params['paid']} was paid on a total of {params['total']}. The paid amount "
-                f"cannot exceed the invoice total: import any overpayment as a credit note.", **params))
+                f"cannot exceed the invoice total: import any overpayment as a credit memo.", **params))
         raise HTTPException(status_code=422, detail=refusal(
             "doc_import.refunded_over_total",
-            f"Credit note {number} says {params['paid']} was refunded on a total of {params['total']}. The "
-            f"refunded amount cannot exceed the credit note total.", **params))
+            f"Credit memo {number} says {params['paid']} was refunded on a total of {params['total']}. The "
+            f"refunded amount cannot exceed the credit memo total.", **params))
     if (invoice := await credit_note_original(session, company_id, data)) is not None:
         credit_note_currency(invoice.state, base_currency, data.get("currency"), data.get("conversion_rate"))
     elif doc_type == "invoice" and data.get("status") not in (None, "draft"):
@@ -3447,12 +3447,12 @@ async def _refuse_undo_under_credit_note(session, company_id, state: dict, invoi
     if supplier:
         raise HTTPException(status_code=409, detail=refusal(
             f"docs.{action}_under_supplier_credit_note",
-            f"This document cannot be {undone}: supplier credit notes {listed} are issued against it. "
-            f"Void those supplier credit notes first, then try again.", numbers=listed))
+            f"This document cannot be {undone}: vendor credit memos {listed} are issued against it. "
+            f"Void those vendor credit memos first, then try again.", numbers=listed))
     raise HTTPException(status_code=409, detail=refusal(
         f"docs.{action}_under_credit_note",
-        f"This invoice cannot be {undone}: credit notes {listed} are issued against it. Void those "
-        f"credit notes first, then try again.", numbers=listed))
+        f"This invoice cannot be {undone}: credit memos {listed} are issued against it. Void those "
+        f"credit memos first, then try again.", numbers=listed))
 
 
 @router.post("/{entity_id}/close")
@@ -3535,7 +3535,7 @@ async def reopen_doc(entity_id: str, payload: DocReopenBody, company_id: str = D
         raise HTTPException(status_code=409, detail=refusal(
             "docs.reopen_memo_only",
             f"Only a closed memo can be reopened. {number} closed because its invoice is void and stays closed; "
-            "to credit the customer, issue a new credit note on a live invoice.", document=number))
+            "to credit the customer, issue a new credit memo on a live invoice.", document=number))
     restored = row.state.get("pre_close_status") or "final"
     await require_moving_fits_units(session, company_id, entity_id, "doc", {**row.state, "status": restored})
     event_data = payload.model_dump(exclude_none=True)
@@ -3632,8 +3632,8 @@ async def revert_doc_to_draft(entity_id: str, payload: DocRevertBody, company_id
     if state.get("doc_type") == "debit_note" and state.get("source_return"):
         raise HTTPException(status_code=409, detail=refusal(
             "debit_note.revert_return",
-            "This supplier credit note was raised by a return, so it cannot go back to draft. To undo "
-            "the return, void the credit note: the goods go back into stock and the bill owes them again."))
+            "This vendor credit memo was raised by a return, so it cannot go back to draft. To undo "
+            "the return, void the credit memo: the goods go back into stock and the bill owes them again."))
     # Inbound docs (bill, consignment_in) can also revert from received/fulfilled statuses.
     _doc_type = state.get("doc_type", "")
     _is_inbound = _doc_type in INBOUND_DOC_TYPES
@@ -3853,7 +3853,7 @@ async def unvoid_doc(entity_id: str, payload: DocUnvoidBody, company_id: str = D
         if state.get("source_return"):
             raise HTTPException(status_code=409, detail=refusal(
                 "debit_note.unvoid_return",
-                "This supplier credit note was raised by a return, and voiding it took the return back: the "
+                "This vendor credit memo was raised by a return, and voiding it took the return back: the "
                 "goods are in stock again. To send them back, use Return items on the bill."))
         await supplier_credit_original(session, company_id, state, for_update=True)
     await require_moving_fits_units(session, company_id, entity_id, "doc", {**state, "status": restored_status})
@@ -7435,7 +7435,7 @@ async def return_consignment_items(entity_id: str, payload: ReturnBody, company_
                 raise HTTPException(status_code=422, detail=refusal(
                     "docs.return_lot_transformed",
                     f"{name} was made by processing goods received on this document, so it cannot go "
-                    "back to the supplier at cost. Ask the supplier for a credit note instead.", sku=name))
+                    "back to the supplier at cost. Ask the supplier for a credit memo instead.", sku=name))
             if left is None:
                 raise HTTPException(status_code=422, detail=refusal(
                     "docs.return_lot_not_received",
@@ -7455,7 +7455,7 @@ async def return_consignment_items(entity_id: str, payload: ReturnBody, company_
                 raise HTTPException(status_code=422, detail=refusal(
                     "docs.return_lot_split_before_receipt",
                     f"{name} was split off before this document's goods came in, so none of them are "
-                    "in it. Ask the supplier for a credit note instead.", sku=name))
+                    "in it. Ask the supplier for a credit memo instead.", sku=name))
         root_of[it.item_id] = root
         returnable[root] = left - it.quantity_returned
 
@@ -7521,7 +7521,7 @@ async def return_consignment_items(entity_id: str, payload: ReturnBody, company_
             raise HTTPException(status_code=422, detail=refusal(
                 "docs.return_lot_merged",
                 f"Cannot return {sku}: it was merged into {into}, so its goods are no longer in it. Ask the "
-                "supplier for a credit note instead.", sku=sku, into=into))
+                "supplier for a credit memo instead.", sku=sku, into=into))
         # Consigned goods sold, or held for a sale, are owed to the consignor as money, not
         # as goods: what the sale booked against the consignor stays settled once. Goods a
         # sale shipped have already left the lot, and a voided invoice holds nothing.
@@ -7796,7 +7796,7 @@ async def _refuse_void_under_supplier_credit(session, company_id, note: dict) ->
                         for p in live if p.get("method") == "refund") or "--"
     raise HTTPException(status_code=409, detail=refusal(
         "docs.void_under_supplier_credit",
-        f"This supplier credit note is still applied to bills {bills} and refunded {refunds}. Unapply it "
+        f"This vendor credit memo is still applied to bills {bills} and refunded {refunds}. Unapply it "
         f"from each bill and void each refund on it first, then void it.", bills=bills, refunds=refunds))
 
 
@@ -7814,7 +7814,7 @@ async def _undo_supplier_return(session, company_id, user_id, note_id: str, note
     if returned is None or returned.entity_id != doc_id or returned.event_type != "doc.items_returned":
         raise HTTPException(status_code=409, detail=refusal(
             "debit_note.return_missing",
-            "The return this supplier credit note was raised for cannot be found, so voiding it cannot "
+            "The return this vendor credit memo was raised for cannot be found, so voiding it cannot "
             "put the goods back. Void the goods with a stock adjustment instead."))
     data = returned.data or {}
     await auto_je.void_supplier_return(session, company_id=company_id, user_id=user_id, doc_id=doc_id,
@@ -13058,7 +13058,7 @@ async def undo_receive_record(entity_id: str, company_id: str, user, session: As
                 raise HTTPException(status_code=422, detail=refusal(
                     "docs.undo_receipt_merged",
                     f"SKU '{sku}' was merged into {into} since this document received it, so the receipt "
-                    f"cannot be undone. Ask the supplier for a credit note instead.", sku=sku, into=into))
+                    f"cannot be undone. Ask the supplier for a credit memo instead.", sku=sku, into=into))
             needed = came_in.get(lot, 0.0) or added.get(lot, (0.0, 0.0))[0]
             raise HTTPException(status_code=422, detail=refusal(
                 "docs.undo_receipt_units_sold",
