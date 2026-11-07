@@ -49,7 +49,7 @@ from celerp.services.goods_cost import GOODS_COST_UNKNOWN
 from celerp.services.money import currency_dp, rate_dp
 from celerp.output.doc_print import fmt_rate, input_rate
 from ui.routes.documents import _ICON_PRINT as _ICON_PRINT_SVG
-from ui.i18n import t, get_lang, is_rtl, field_label, price_list_label, category_label, category_labels, refusal_text, doc_type_label
+from ui.i18n import t, t_or, get_lang, is_rtl, field_label, price_list_label, category_label, category_labels, refusal_text, doc_type_label
 from celerp.services.units import format_qty, is_weight_unit, is_pieces_unit
 from celerp.services.line_measures import FULL, proposed_sell_qty, splitting_allowed, stored_sell_qty
 from celerp_inventory.services import (
@@ -121,6 +121,28 @@ function _updateSplitDelta(form) {
 """
 
 _BULK_SPLIT_JS = """
+function validateSplitInputs(form) {
+  var fields = form.matches('[data-validates-split]') ? form.querySelectorAll('[name="child_qty"]') : [];
+  for (var input of fields) {
+    if (!Number.isFinite(Number(input.value)) || !input.value.trim() || Number(input.value) <= 0) {
+      input.setCustomValidity(form.dataset.invalidQty); input.focus(); input.reportValidity(); return false;
+    }
+  }
+  return true;
+}
+if (!window._splitValidationInstalled) {
+  window._splitValidationInstalled = true;
+  document.addEventListener('input', function(e) { if(e.target.setCustomValidity) e.target.setCustomValidity(''); });
+  document.addEventListener('keydown', function(e) {
+    var form=e.target.closest('form[data-validates-split]');
+    if(e.key==='Enter' && form && !validateSplitInputs(form)) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  document.addEventListener('submit', function(e) {
+    var form=e.target.closest('form[data-validates-split]');
+    if(form && !validateSplitInputs(form)) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+}
+
 function _setMotherQty(form, val, decimals) {
   // Mother qty is now an editable input; update its value reactively.
   // Only updates if the user has NOT manually edited the mother qty field.
@@ -364,6 +386,7 @@ function bulkSplitChildWeightChanged(input) {
 }
 function bulkSplitSkuChanged(input) {}
 function bulkSplitSubmit(formEl) {
+  if (!validateSplitInputs(formEl)) return false;
   var existing = formEl.querySelector('input[name="entity_id"]');
   if (!existing || !existing.value) {
     var checked = document.querySelector('.row-select:checked');
@@ -697,6 +720,7 @@ def _split_table_form(preview: dict, *, action: str, target: str, form_id: str,
                    value=wfmt.format(preview.get("parent_weight") or 0))]
             if show_weight else []
         ),
+        P(t_or("inventory.split_no_weight", "No net weight is recorded for this item."), cls="form-hint") if not has_weight and sell_by_type != "weight" else None,
         Table(
             Thead(Tr(*headers)),
             Tbody(mother_row, child_row),
@@ -725,7 +749,9 @@ def _split_table_form(preview: dict, *, action: str, target: str, form_id: str,
         hx_post=action,
         hx_target=target,
         hx_swap="outerHTML",
-        onsubmit="bulkSplitSubmit(this)",
+        onsubmit="return bulkSplitSubmit(this)",
+        data_validates_split="true",
+        data_invalid_qty=t("inv.split_quantity_must_be_greater_than_0"),
         id=form_id,
         **form_data,
     )
@@ -8240,10 +8266,14 @@ function batchSplitPreview_{safe_id}(form) {{
     + (over ? ' <span class="batch-split-over">' + (form.getAttribute('data-exceeds-label') || '').replace('{{avail}}', avail) + '</span>' : '');
 }}
 function batchSplitSubmit_{safe_id}(form) {{
-  var qty   = parseFloat(form.querySelector('[name=batch_qty]').value);
-  var count = parseInt(form.querySelector('[name=batch_count]').value, 10);
-  if (!qty || qty <= 0) {{ alert(form.getAttribute('data-alert-qty')); return; }}
-  if (!count || count < 2) {{ alert(form.getAttribute('data-alert-count')); return; }}
+  var qtyEl = form.querySelector('[name=batch_qty]');
+  var countEl = form.querySelector('[name=batch_count]');
+  var qty = Number(qtyEl.value);
+  var count = Number(countEl.value);
+  if (!Number.isFinite(qty) || qty <= 0) {{ qtyEl.setCustomValidity(form.dataset.alertQty); qtyEl.focus(); qtyEl.reportValidity(); return; }}
+  if (!Number.isFinite(count) || !Number.isInteger(count) || count < 2) {{ countEl.setCustomValidity(form.dataset.alertCount); countEl.focus(); countEl.reportValidity(); return; }}
+  var complementEl = form.querySelector('[name=batch_complement]');
+  if(complementEl && (complementEl.validity.badInput || (complementEl.value && (!Number.isFinite(Number(complementEl.value)) || Number(complementEl.value)<=0)))) {{ complementEl.setCustomValidity(form.dataset.alertQty); complementEl.focus(); complementEl.reportValidity(); return; }}
   var btn = form.querySelector('.btn--batch-submit');
   if (btn) {{ btn.disabled = true; btn.style.opacity = '0.5'; }}
   var compEl = form.querySelector('[name=batch_complement]');
