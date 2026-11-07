@@ -485,7 +485,8 @@ def _enrich_doc_files(doc: dict) -> list[dict]:
     """Tag each file in a doc with its linked_ref and linked_url."""
     doc_id = doc.get("entity_id") or doc.get("id") or ""
     ref = doc.get("ref_id") or doc.get("doc_number") or ""
-    url = f"/docs/{doc_id}" if doc_id else ""
+    resource = "lists" if doc.get("entity_type") == "list" else "docs"
+    url = f"/{resource}/{doc_id}" if doc_id else ""
     return [{**f, "linked_ref": ref, "linked_url": url} for f in doc.get("files", [])]
 
 
@@ -7495,7 +7496,7 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
     subtotal_value = _pick("subtotal")
     discount_value = _pick("discount_amount") or 0
     currency = doc.get("currency") or "USD"
-    is_list = doc_type == "list"
+    is_list = doc.get("entity_type") == "list" or (doc_type == "list" and doc.get("entity_type") != "doc")
     # Lists use /lists/ endpoints; docs use /docs/
     _base = f"/lists/{entity_id}" if is_list else f"/docs/{entity_id}"
 
@@ -11391,7 +11392,7 @@ async function celerpCsvImport(input, entityId) {{
             Summary(
                 H2(t("label.files"), cls="internal-section-title"),
             ),
-            _doc_files_section("list" if doc_type == "list" else "doc", entity_id, _enrich_doc_files(doc)),
+            _doc_files_section("list" if is_list else "doc", entity_id, _enrich_doc_files(doc)),
             cls="doc-internal",
         ),
         # --- GL Impact section (accounting permission only) ---

@@ -555,6 +555,8 @@ async def store_file(
     Raises ValueError for a file over the size limit or of a type outside the allowlist.
     """
     check_file_size(len(content))
+    if not content:
+        raise ValueError(t("auth.file_empty"))
     if not accepts_mime(mime):
         raise ValueError(t("error.file_type_unsupported", mime=mime))
 

@@ -315,3 +315,10 @@ async def test_attachment_upload_to_a_missing_record_is_not_a_file_type_error(cl
                           files={"file": ("valid.pdf", _SMALL_PDF, "application/pdf")})
     assert r.status_code == 404, r.text
     assert "couldn't find" in r.text
+
+
+def test_file_link_uses_the_record_owner_not_its_display_type():
+    from ui.routes.documents import _enrich_doc_files
+    for owner, path in [("list", "lists"), ("doc", "docs")]:
+        doc={"entity_type":owner,"doc_type":"list","entity_id":"record:1","files":[{"id":"file:1"}]}
+        assert _enrich_doc_files(doc)[0]["linked_url"]==f"/{path}/record:1"
