@@ -3754,10 +3754,10 @@ svg[aria-hidden="true"] { vertical-align: -0.125em; flex-shrink: 0; }
 .history-filters { display: flex; flex-wrap: wrap; gap: 8px 12px; padding: 8px 14px; align-items: flex-end; }
 .history-filter { display: flex; flex-direction: column; gap: 2px; min-width: 140px; }
 .history-table td.col-old, .history-table td.col-new { overflow-wrap: anywhere; }
-.history-table td.col-old { color: var(--c-text2); }
+.history-table td.col-old, .history-table td.col-new, .history-table td.col-field { color: var(--c-text); }
 .history-table tr.history-row--cont td.col-when,
 .history-table tr.history-row--cont td.col-user,
-.history-table tr.history-row--cont td.col-event { color: var(--c-text2); opacity: 0.55; }
+.history-table tr.history-row--cont td.col-event { color: var(--c-text2); }
 
 /* Document cards with a table (GL Impact, Related records, History): one header, the table
    flush with the card, cells padded like the card's own rows. */
@@ -3778,3 +3778,13 @@ svg[aria-hidden="true"] { vertical-align: -0.125em; flex-shrink: 0; }
 .gl-impact-row--void td:nth-child(7) { text-decoration: line-through; }
 .payment-form-section > .form-subtitle { padding: 0; }
 .payment-form-section .form-actions { display: flex; justify-content: flex-start; padding-top: 12px; }
+
+/* Record links sit beside the field and leave the options in their existing DOM scope. */
+.combobox-wrap[data-record-prefix] > .combobox-input { padding-right: 54px; }
+.combobox-record-link { position: absolute; right: 25px; top: 50%; transform: translateY(-50%); display: inline-flex; color: var(--c-accent); }
+.combobox-record-link[hidden] { display: none; }
+.note-text, .note-input, .doc-section textarea[name="customer_note"], .doc-section textarea[name="terms_text"] {
+  max-height: 12rem; overflow-y: auto; overflow-wrap: anywhere;
+}
+.note-input { resize: vertical; }
+@media print { .note-text { max-height: none; overflow: visible; } }

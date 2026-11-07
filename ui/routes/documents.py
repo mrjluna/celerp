@@ -4629,7 +4629,6 @@ celerpUpdateBulkAlloc();
             return files_error(error_message(e), e.status)
         return _doc_files_section("list" if resource == "lists" else "doc", entity_id, _enrich_doc_files(doc))
 
-    @app.get("/docs/{entity_id}/gl-impact")
     async def doc_gl_impact(request: Request, entity_id: str):
         from starlette.responses import Response as _R
         resource = "lists" if request.url.path.startswith("/lists/") else "docs"
@@ -4651,6 +4650,9 @@ celerpUpdateBulkAlloc();
                 id=_gl_impact_dom_id(entity_id), cls="doc-section",
             )
         return _doc_gl_impact_section(data, entity_id, data.get("currency"))
+
+    app.get("/docs/{entity_id}/gl-impact")(doc_gl_impact)
+    app.get("/lists/{entity_id}/gl-impact")(doc_gl_impact)
 
     @app.get("/docs/{entity_id}/history")
     async def doc_history_paginated(request: Request, entity_id: str):
@@ -6043,6 +6045,7 @@ async def _contact_picker(token: str, *, resource: str, entity_id: str, field: s
             options=options,
             value=value,
             placeholder=t("documents.search_contacts"),
+            record_type="contact",
             search_url=f"/contacts/search-options?contact_type={contact_type}&field={field}",
             **save_attrs,
         ),
@@ -6416,7 +6419,7 @@ def _payment_section(doc: dict, bank_accounts: list[dict] | None = None, is_oper
                     Form(
                         Div(
                             Div(Label(t(note["target_label"]), cls="form-label"),
-                                searchable_select("target_doc_id", [(oid, label) for oid, label, _owed in options],
+                                searchable_select("target_doc_id", [(oid, label) for oid, label, _owed in options], record_type="doc",
                                                   search_url=f"/docs/{entity_id}/credit-target-options"),
                                 cls="form-group"),
                             Div(Label(t("label.amount"), cls="form-label"),
@@ -7331,7 +7334,7 @@ def _draw_panel(entity_id: str, doc: dict, targets: list | None, unit_map: dict)
         *rows,
         Input(type="hidden", name="currency", value=doc.get("currency") or ""),
         Div(Label(t("documents.invoice_target"), cls="form-label"),
-            searchable_select("target_doc_id", options, value=""), cls="inline-form-row"),
+            searchable_select("target_doc_id", options, value="", record_type="doc"), cls="inline-form-row"),
         Div(id="draw-preview", hx_post=f"/docs/{entity_id}/invoice-lines/preview", hx_include="#draw-panel",
             hx_trigger="change from:#draw-panel, input delay:400ms from:#draw-panel, celerpDrawOpen",
             **PREVIEW_ATTRS),
@@ -9404,14 +9407,7 @@ async function celerpAcSearch(input, field) {{
 // Fixed to the window so it escapes overflow:auto scroll containers. A fixed list cannot be
 // scrolled to: open it above the field when it does not fit below and there is more room above.
 function _celerpAcPlace(list, wrap) {{
-    const rect = wrap.getBoundingClientRect();
-    list.style.position = 'fixed';
-    list.style.left = rect.left + 'px';
-    list.style.width = rect.width + 'px';
-    list.style.zIndex = '9999';
-    const below = window.innerHeight - rect.bottom;
-    const h = list.offsetHeight;
-    list.style.top = (h > below && rect.top > below ? rect.top - Math.min(h, rect.top) : rect.bottom) + 'px';
+    placeFieldPopup(list, wrap.querySelector('.catalog-ac-input') || wrap, 200);
 }}
 function celerpAcBlur(input) {{
     const list = input.parentElement.querySelector('.catalog-ac-list');
@@ -11400,10 +11396,10 @@ async function celerpCsvImport(input, entityId) {{
         ),
         # --- GL Impact section (accounting permission only) ---
         (Div(id=_gl_impact_dom_id(entity_id),
-             hx_get=f"/docs/{entity_id}/gl-impact",
+             hx_get=f"{_base}/gl-impact",
              hx_trigger="load",
              hx_swap="outerHTML")
-         if role_has_permission(settings or {}, role, "view_financial_reports") and doc.get("doc_type") != "list" else ""),
+         if role_has_permission(settings or {}, role, "view_financial_reports") else ""),
         # --- History / Activity section ---
         Div(id=f"doc-history-{entity_id.replace(':', '-').replace('/', '-')}",
             hx_get=f"/docs/{entity_id}/history?page=1",

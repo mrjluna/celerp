@@ -38,8 +38,8 @@ def test_detail_page_shows_gl_impact_to_a_role_granted_it():
     assert _PLACEHOLDER in _page(role="viewer", settings=grants)
 
 
-def test_lists_never_get_a_gl_impact_section():
-    assert _PLACEHOLDER not in _page(doc_type="list", role="owner")
+def test_list_documents_use_the_same_gl_impact_renderer():
+    assert "/lists/doc:list-1/gl-impact" in _page(doc_type="list", role="owner")
 
 
 _POSTED = {

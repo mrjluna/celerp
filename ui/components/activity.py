@@ -89,7 +89,7 @@ EVENT_TYPE_LABELS: dict[str, str] = {et: f"event.{et}" for et in _EVENT_TYPES}
 
 # File events (item.file.*, doc.file_*, crm.contact.file_*) share one label set and one
 # renderer across all entity types, keyed by the operation suffix (attached/tagged/...).
-_FILE_ENTITY_SEG = {"item": "items", "contact": "contacts", "doc": "docs"}
+_FILE_ENTITY_SEG = {"item": "items", "contact": "contacts", "doc": "docs", "list": "lists"}
 # File-op label i18n keys, resolved at render time (see event_label). Keyed by the
 # operation suffix; the value is the ``event.file.<op>`` key.
 _FILE_OP_LABELS = {op: f"event.file.{op}" for op in

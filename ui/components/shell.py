@@ -485,6 +485,22 @@ document.addEventListener('mousedown', function(e) {
 }, true);
 
 /* Searchable combobox — works with .combobox-wrap > .combobox-input + .combobox-list */
+function placeFieldPopup(panel, anchor, limit) {
+  var r=anchor.getBoundingClientRect(), gap=8;
+  var vw=document.documentElement.clientWidth, vh=window.innerHeight;
+  // Keep the popup in its DOM scope while escaping containing blocks and clipping cards.
+  if(panel.showPopover) { panel.setAttribute('popover','manual'); panel.showPopover(); }
+  panel.style.position='fixed'; panel.style.zIndex='9999';
+  panel.style.margin='0'; panel.style.padding='0'; panel.style.right='auto';
+  panel.style.maxWidth=Math.min(400,vw-2*gap)+'px';
+  panel.style.minWidth=Math.min(r.width,vw-2*gap)+'px'; panel.style.width='auto';
+  var below=vh-r.bottom-gap, above=r.top-gap;
+  var up=below<Math.min(panel.scrollHeight,limit)&&above>below;
+  panel.style.maxHeight=Math.min(limit,Math.max(up?above:below,0)-2)+'px';
+  panel.style.top=up?'auto':(r.bottom+2)+'px';
+  panel.style.bottom=up?(vh-r.top+2)+'px':'auto';
+  panel.style.left=Math.max(gap,Math.min(r.left,vw-gap-panel.offsetWidth))+'px';
+}
 function initCombobox(wrap) {
   var input = wrap.querySelector('.combobox-input');
   var list = wrap.querySelector('.combobox-list');
@@ -529,6 +545,16 @@ function initCombobox(wrap) {
   // a stale search query in the box. selectOpt() updates it on every real pick.
   var committedValue = hidden ? hidden.value : '';
   var committedLabel = input.value;
+  function updateRecordLink() {
+    var link = wrap.querySelector('.combobox-record-link');
+    if (!link || !hidden) return;
+    var value = hidden.value;
+    link.hidden = !value || value.indexOf('__') === 0;
+    if (link.hidden) link.removeAttribute('href');
+    else link.href = wrap.dataset.recordPrefix + encodeURIComponent(value);
+  }
+  if (hidden) hidden.addEventListener('change', updateRecordLink);
+  updateRecordLink();
 
   // position:fixed on the list so overflow:hidden/auto ancestors can't clip it.
   // We set top/left/width inline on open so it tracks the input position.
@@ -548,17 +574,7 @@ function initCombobox(wrap) {
     requestAnimationFrame(follow);
   }
   function positionList() {
-    var r = input.getBoundingClientRect();
-    var gap = 8, vw = document.documentElement.clientWidth, vh = window.innerHeight;
-    list.style.maxWidth = Math.min(400, vw - 2 * gap) + 'px';
-    list.style.minWidth = Math.min(r.width, vw - 2 * gap) + 'px';
-    list.style.width = 'auto';
-    var below = vh - r.bottom - gap, above = r.top - gap;
-    var up = below < Math.min(list.scrollHeight, 220) && above > below;
-    list.style.maxHeight = Math.min(220, Math.max(up ? above : below, 0) - 2) + 'px';
-    list.style.top = up ? 'auto' : (r.bottom + 2) + 'px';
-    list.style.bottom = up ? (vh - r.top + 2) + 'px' : 'auto';
-    list.style.left = Math.max(gap, Math.min(r.left, vw - gap - list.offsetWidth)) + 'px';
+    placeFieldPopup(list, input, 220);
     if (!following) { following = true; requestAnimationFrame(follow); }
   }
 
@@ -666,6 +682,7 @@ function initCombobox(wrap) {
     if (hidden) hidden.value = val;
     committedValue = val;
     committedLabel = label;
+    updateRecordLink();
     list.classList.remove('open');
     currentOpts().forEach(function(o) { o.classList.remove('focused'); });
     fireChange();
@@ -2975,6 +2992,8 @@ def _sidebar(active: str, lang: str = "en", role: str = "owner", request=None, s
         return A(label, href=href, cls=f"nav-link {'nav-link--active' if is_active else ''}")
 
     sections: list[FT] = [_link(item) for item in top_level]
+    group_icons = {"Sales Documents": "file-text", "Purchasing Documents": "shopping-cart",
+                   "Inventory": "package", "Manufacturing": "factory", "Subscriptions": "repeat"}
 
     for group, items in grouped.items():
         group_key = group.lower().replace(" ", "_")
@@ -2988,12 +3007,13 @@ def _sidebar(active: str, lang: str = "en", role: str = "owner", request=None, s
         settings_href = next((i["settings_href"] for i in items if i.get("settings_href")), None)
         if settings_href:
             header = Div(
-                A(_menu_icon("settings"), group_label, href=settings_href, cls="sidebar-group-settings-link"),
+                A(_menu_icon(group_icons.get(group, "folder")), group_label, href=settings_href, cls="sidebar-group-settings-link"),
                 Span("›", cls="sidebar-group-arrow"),
                 cls="sidebar-group-header",
             )
         else:
             header = Div(
+                _menu_icon(group_icons.get(group, "folder")),
                 Span(group_label),
                 Span("›", cls="sidebar-group-arrow"),
                 cls="sidebar-group-header",

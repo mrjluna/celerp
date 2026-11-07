@@ -8,6 +8,7 @@ import re
 
 from fasthtml.common import *
 from ui.i18n import t, t_or, field_label
+from ui.components.icons import icon
 from celerp.services.field_schema import MIXED_VALUE
 from celerp.services.units import plain_number
 # Canonical definitions live with the shared document renderer; re-exported
@@ -757,6 +758,7 @@ def searchable_select(
     count_label: str = "",
     aria_label: str = "",
     autofocus: bool = False,
+    record_type: str = "",
     **htmx_attrs,
 ) -> FT:
     """
@@ -825,7 +827,20 @@ def searchable_select(
         opt_els = [Div(label, cls=_opt_cls(val), data_value=val, role="option") for val, label in normalized]
     opt_els.append(Div(t("msg.no_results"), cls="combobox-option combobox-option--empty", style="display:none"))
 
+    record_type = record_type or ({"contact_id": "contact", "customer_id": "contact", "supplier_id": "contact",
+                                  "commission_contact_id": "contact", "item_id": "item"}.get(name, ""))
+    prefixes = {"contact": "/contacts/", "item": "/inventory/", "doc": "/docs/", "list": "/lists/"}
+    record_prefix = prefixes.get(record_type, "") if not multiple else ""
+    jump = None
+    if record_prefix:
+        from urllib.parse import quote
+        selected_record = bool(value and not value.startswith("__"))
+        jump = A(icon("eye"), href=record_prefix + quote(value, safe="") if selected_record else None,
+                 hidden=not selected_record, cls="combobox-record-link", target="_blank", rel="noopener",
+                 title=t("documents.view_item_details") if record_type == "item" else t("ai.open_record"))
     wrap_attrs: dict = {"cls": "combobox-wrap"}
+    if record_prefix:
+        wrap_attrs["data_record_prefix"] = record_prefix
     if allow_custom:
         wrap_attrs["data_allow_custom"] = "true"
     if custom_hint:
@@ -879,6 +894,7 @@ def searchable_select(
               value=display_label, placeholder=placeholder, autocomplete="off", **text_input_extra),
         Input(type="hidden", name=name, data_name=name, value=value, **htmx_attrs),
         Div(*opt_els, cls="combobox-list", role="listbox"),
+        jump,
         **wrap_attrs,
     )
 

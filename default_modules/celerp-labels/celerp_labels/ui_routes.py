@@ -984,7 +984,7 @@ def _label_settings_root(
     ft = _ft()
     Div, Script, NotStr = ft["Div"], ft["Script"], ft["NotStr"]
     from ui.components.table import breadcrumbs
-    crumbs = breadcrumbs([("Inventory", "/inventory"), (Span(icon("settings"), "Inventory Settings"), "/settings/inventory"), ("Labels", None)])
+    crumbs = breadcrumbs([("Inventory", "/inventory"), (ft["Span"](icon("settings"), t("settings_inventory.page_header")), "/settings/inventory"), ("Labels", None)])
     return Div(
         NotStr(_LABELS_CSS),
         crumbs,
