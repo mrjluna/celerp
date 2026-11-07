@@ -912,6 +912,7 @@ def paired_display_cell(
     format_fn=None,
     primary_editable: bool = True,
     secondary_editable: bool = True,
+    hide_empty_secondary: bool = False,
 ) -> FT:
     """Combined cell showing two separately dbl-click-editable values in one TD.
 
@@ -949,6 +950,8 @@ def paired_display_cell(
         if primary_editable
         else Span(pri_disp, cls="paired-primary paired-primary--readonly")
     )
+    if hide_empty_secondary and sec_disp == EMPTY and not both_empty:
+        sec_disp = icon("pencil", size=0.75)
     sec_span = (
         Span(
             sec_disp,

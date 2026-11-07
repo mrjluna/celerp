@@ -27,6 +27,7 @@ from ui.components.deleted_items import deleted_items, deleted_label, is_deleted
 from ui.components.demo_items import DEMO_ITEMS_FILTER
 from ui.components.icons import icon, import_icon
 from ui.api_client import APIError, _flatten_item_attrs, error_message
+from ui.components.item_fields import item_detail_schema, item_display_values
 from ui.components.files import files_error, files_section as _shared_files_section, files_session_expired
 from ui.components.operation_key import kept_operation_key, operation_key_vals, required_operation_key
 from ui.components.shell import base_shell, minimal_shell, module_active, page_header, search_help, toast_header, page_title
@@ -48,7 +49,6 @@ from celerp.importers.tabular import known_headers
 from celerp.services.goods_cost import GOODS_COST_UNKNOWN
 from celerp.services.money import currency_dp, rate_dp
 from celerp.output.doc_print import fmt_rate, input_rate
-from ui.routes.documents import _ICON_PRINT as _ICON_PRINT_SVG
 from ui.i18n import t, t_or, get_lang, is_rtl, field_label, price_list_label, category_label, category_labels, refusal_text, doc_type_label
 from celerp.services.units import format_qty, is_weight_unit, is_pieces_unit
 from celerp.services.line_measures import FULL, proposed_sell_qty, splitting_allowed, stored_sell_qty
@@ -1975,10 +1975,7 @@ def setup_routes(app):
         schema = _apply_edit_permission(schema, _get_role(request), company.get("settings") or {}, is_draft=_is_draft(item))
         # Merge category-specific fields for this item's category
         item_cat = item.get("category", "")
-        if item_cat and item_cat in cat_schemas:
-            global_keys = {f["key"] for f in schema}
-            extra = [f for f in cat_schemas[item_cat] if f["key"] not in global_keys]
-            schema = schema + extra
+        schema = item_detail_schema(schema, cat_schemas.get(item_cat) or [], item_cat)
 
         # A draft's creator may set its cost even without view_inventory_costs, but
         # /me/price-lists strips the cost definition for that role, so the pricing tab's
@@ -2024,7 +2021,7 @@ def setup_routes(app):
                 Div(_make_available_btn, cls="doc-actions-left"),
                 Div(
                     Div(
-                        A(NotStr(_ICON_PRINT_SVG), href=f"/inventory/{entity_id}/worksheet/print", target="_blank",
+                        A(icon("clipboard-list"), href=f"/inventory/{entity_id}/worksheet/print", target="_blank",
                           cls="btn btn--ghost btn--icon", title=t("inventory.print_production_worksheet")),
                         _print_label_dropdown(entity_id),
                         A(t("inv.back_to_inventory"), href="/inventory", cls="btn btn--secondary"),
@@ -2955,7 +2952,13 @@ function celerpPrintLabel(entityId, templateId) {
                         return refused
                 else:
                     old_val = old_item.get(field)
-                    await api.patch_item(token, entity_id, {field: {"old": old_val, "new": value}})
+                    changes = {field: {"old": old_val, "new": value}}
+                    if (old_item.get("_legacy_core_fields") or {}).get("weight") == "weight_g":
+                        if field == "weight":
+                            changes["weight_unit"] = {"old": old_item.get("_legacy_weight_unit"), "new": "gram"}
+                        elif field == "weight_unit":
+                            changes["weight"] = {"old": None, "new": old_item["weight"]}
+                    await api.patch_item(token, entity_id, changes)
             schema, item, cat_schemas, locs_data = await asyncio.gather(
                 api.get_item_schema(token),
                 api.get_item(token, entity_id),
@@ -3168,10 +3171,7 @@ function celerpPrintLabel(entityId, templateId) {
         ]
         # Merge category-specific fields
         item_cat = item.get("category", "")
-        if item_cat and item_cat in cat_schemas:
-            global_keys = {f["key"] for f in schema}
-            extra = [f for f in cat_schemas[item_cat] if f["key"] not in global_keys]
-            schema = schema + extra
+        schema = item_detail_schema(schema, cat_schemas.get(item_cat) or [], item_cat)
         # Build pricing_keys to exclude from detail_fields
         pl_names = {pl.get("name", "") for pl in price_lists}
         pl_conventional = {price_key(n) for n in pl_names}
@@ -5809,6 +5809,7 @@ def _inventory_cell_renderers(schema: list[dict], unit_names: list[str] | None =
                         primary_options=po, secondary_options=so,
                         primary_editable=ped or pri in _rek,
                         secondary_editable=sed or sec in _rek,
+                        hide_empty_secondary=pri in ("weight", "gross_weight"),
                     )
                 return renderer
             renderers[primary] = _make()
@@ -7804,6 +7805,7 @@ function syncPricingUnit(unitId, totalId, qty, cdp, rdp) {
 def _detail_table(entity_id: str, item: dict, fields: list[dict], title: str | None = None, currency: str | None = None, cell_renderers: dict | None = None) -> FT:
     if not fields:
         return ""
+    item = item_display_values(item)
     if title is None:
         title = t("th.details")
     from ui.components.table import display_cell
@@ -7824,7 +7826,8 @@ def _detail_table(entity_id: str, item: dict, fields: list[dict], title: str | N
                 domain="item_status",
             )
         return Tr(
-            Td(field_label(f), (Span("?", cls="field-tooltip", title=t(f["tooltip_key"])) if f.get("tooltip_key") else ""), cls="detail-label"),
+            Td(field_label(f), (Span("?", cls="field-tooltip", title=t(f["tooltip_key"])) if f.get("tooltip_key") else ""),
+               P(f["help_text"], cls="form-hint") if f.get("help_text") else None, cls="detail-label"),
             cell,
         )
     return Div(
