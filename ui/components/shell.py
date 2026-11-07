@@ -554,6 +554,9 @@ function initCombobox(wrap) {
     else link.href = wrap.dataset.recordPrefix + encodeURIComponent(value);
   }
   if (hidden) hidden.addEventListener('change', updateRecordLink);
+  // Filtering clears the hidden selection after the input event starts.
+  input.addEventListener('input', function() { requestAnimationFrame(updateRecordLink); });
+  input.addEventListener('blur', function() { setTimeout(updateRecordLink, 0); });
   updateRecordLink();
 
   // position:fixed on the list so overflow:hidden/auto ancestors can't clip it.

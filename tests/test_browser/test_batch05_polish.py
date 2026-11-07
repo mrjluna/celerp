@@ -50,7 +50,7 @@ def test_record_link_follows_selection_and_disappears_when_cleared(page, ui_serv
     page.locator('#polish-test .combobox-option',has_text='Customer One').click()
     expect(link).to_have_attribute('href','/contacts/contact%3A1')
     expect(link).to_be_visible()
-    page.locator('#polish-test input[type=hidden]').evaluate('(e)=>{e.value="";e.dispatchEvent(new Event("change"))}')
+    page.locator('#polish-test .combobox-input').fill('')
     expect(link).to_be_hidden()
 
 @pytest.mark.parametrize('kind', ['invoice', 'bill', 'credit_note', 'debit_note'])
