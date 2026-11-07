@@ -953,6 +953,24 @@ async def _export_columns(token: str, p: dict) -> list[str]:
     return [c for c in cols if c not in image_keys]
 
 
+def _inventory_toolbar(p: dict, settings: dict, role: str, lang: str = "en", *, oob: bool = False) -> FT:
+    """The same permission and status rules on first load and filtered navigation."""
+    read_only_view = p.get("status") in {"sold", "archived", "disposed"}
+    can_write = not read_only_view
+    can_exchange = role_has_permission(settings, role, "import_export_data")
+    return Div(
+        Button(t("btn.add_item", lang), hx_post="/inventory/create-blank", hx_swap="none", cls="btn btn--primary")
+        if can_write and role_has_permission(settings, role, "edit_inventory") else None,
+        A(t("btn.export_csv", lang), href="/inventory/export/csv?" + urlencode(_base_state(p)), cls="btn btn--secondary") if can_exchange else None,
+        A(import_icon(), t("btn.import", lang), href="/inventory/import", cls="btn btn--secondary", data_import_hint=True)
+        if can_write and can_exchange else None,
+        A(t("inv.customize_fields", lang), href="/settings/inventory?tab=category-library", cls="btn btn--ghost btn--sm")
+        if can_write and can_exchange else None,
+        id="inventory-toolbar-actions", cls="flex-row gap-sm",
+        **({"hx_swap_oob": "outerHTML"} if oob else {}),
+    )
+
+
 async def _render_inventory_fragment(
     token: str, p: dict, lang: str, role: str, **content_kwargs,
 ):
@@ -981,10 +999,11 @@ async def _render_inventory_fragment(
             return RedirectResponse("/login", status_code=302)
         return _inventory_content_error(p, lang)
     try:
-        return await _inventory_content(
+        content = await _inventory_content(
             token, p, schema, cat_schemas, col_prefs, company, locations, units, cat_labels,
             lang=lang, role=role, **content_kwargs,
         )
+        return content, _inventory_toolbar(p, company.get("settings") or {}, role, lang, oob=True)
     except APIError as e:
         if e.status == 401:
             return RedirectResponse("/login", status_code=302)
@@ -1414,8 +1433,6 @@ def setup_routes(app):
         ) if v}
         _search_url = "/inventory/content" + (f"?{urlencode(_search_filters)}" if _search_filters else "")
 
-        _can_import_export = role_has_permission(_settings, _role, "import_export_data")
-        _can_edit_inventory = role_has_permission(_settings, _role, "edit_inventory")
         return await base_shell(
             page_header(
                 t("page.inventory", lang),
@@ -1427,10 +1444,7 @@ def setup_routes(app):
                     label=t(_STATUS_SEARCH_LABELS.get(p.get("status") or "available", "inventory.search_any"), lang),
                     value=p.get("q", ""),
                 ),
-                Button(t("btn.add_item", lang), hx_post="/inventory/create-blank", hx_swap="none", cls="btn btn--primary") if _can_edit_inventory else "",
-                A(t("btn.export_csv", lang), href="/inventory/export/csv?" + urlencode(_base_state(p)), cls="btn btn--secondary") if _can_import_export else "",
-                A(import_icon(), t("btn.import", lang), href="/inventory/import", cls="btn btn--secondary", data_import_hint=True) if _can_import_export else "",
-                A(t("inv.customize_fields"), href="/settings/inventory?tab=category-library", cls="btn btn--ghost btn--sm") if _can_import_export else "",
+                _inventory_toolbar(p, _settings, _role, lang),
             ),
             content,
             Script(_SPLIT_DELTA_JS),
