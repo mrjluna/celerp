@@ -518,7 +518,10 @@ function initCombobox(wrap) {
   new MutationObserver(function() {
     var open = list.classList.contains('open');
     input.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (!open) input.removeAttribute('aria-activedescendant');
+    if (!open) {
+      input.removeAttribute('aria-activedescendant');
+      if (list.hidePopover && list.matches(':popover-open')) list.hidePopover();
+    }
   }).observe(list, {attributes: true, attributeFilter: ['class']});
 
   // Committed selection for a plain single-select: typing only filters the list,
@@ -531,6 +534,8 @@ function initCombobox(wrap) {
   // We set top/left/width inline on open so it tracks the input position.
   list.style.position = 'fixed';
   list.style.zIndex = '9999';
+  // The top layer avoids transformed cards becoming a fixed-position containing block.
+  if (list.showPopover) list.setAttribute('popover', 'manual');
 
   // The list is position:fixed, so keep it inside the viewport: open above the input
   // when there is more room there, and never let it run past either side.
@@ -558,8 +563,9 @@ function initCombobox(wrap) {
   }
 
   function showList() {
-    positionList();
     list.classList.add('open');
+    if (list.showPopover) list.showPopover();
+    positionList();
     followAnchor(list, input, positionList);
   }
 

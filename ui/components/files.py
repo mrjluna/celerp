@@ -562,15 +562,16 @@ def files_section(
         .then(function(){{if(txt&&document.body.contains(zone)) txt.textContent=zone.dataset.dropText;}});
     }}
     zone.addEventListener('click',function(e){{
-      if(e.target===zone||e.target.closest('.file-drop-text,.file-drop-icon,.file-drop-hint')) inp.click();
+      if(e.target===zone||e.target.closest('.file-drop-text,.file-drop-icon,.file-drop-hint')){{
+        inp.removeAttribute('capture'); inp.accept=zone.dataset.accept; inp.click();
+      }}
     }});
     inp.addEventListener('change',function(){{ if(inp.files.length) upload(inp.files[0]); }});
-    var cam=document.getElementById('file-camera-input-{sid}');
     var camBtn=zone.querySelector('.file-camera-btn');
-    if(cam&&camBtn){{
-      camBtn.addEventListener('click',function(e){{e.preventDefault(); cam.click();}});
-      cam.addEventListener('change',function(){{ if(cam.files.length) upload(cam.files[0]); }});
-    }}
+    if(camBtn) camBtn.addEventListener('click',function(e){{
+      e.preventDefault(); inp.accept='image/jpeg,image/png';
+      inp.setAttribute('capture','environment'); inp.click();
+    }});
     zone.addEventListener('dragover',function(e){{e.preventDefault();zone.classList.add('file-drop-zone--active');}});
     zone.addEventListener('dragleave',function(){{zone.classList.remove('file-drop-zone--active');}});
     zone.addEventListener('drop',function(e){{
@@ -589,17 +590,17 @@ def files_section(
     upload_zone = Div(
         Div(icon("folder"), cls="file-drop-icon"),
         Div(t("msg.drop_files_here"), cls="file-drop-text"),
-        Input(type="file", id=f"file-drop-input-{sid}", style="display:none"),
+        Input(type="file", id=f"file-drop-input-{sid}",
+              accept="image/*,video/*,.pdf,.doc,.docx,.txt", style="display:none"),
         # On a phone this opens the camera, so a receipt is photographed straight into
         # the document; desktop browsers open the file picker for images.
         Button(t("msg.take_photo"), type="button", cls="btn btn--sm btn--secondary file-camera-btn"),
-        Input(type="file", id=f"file-camera-input-{sid}", accept="image/*",
-              capture="environment", style="display:none"),
         Script(drop_js),
         cls="file-drop-zone",
         id=f"file-drop-zone-{sid}",
         # Translated strings the JS above reads via dataset instead of splicing
         # into the script source (R2).
+        data_accept="image/*,video/*,.pdf,.doc,.docx,.txt",
         data_drop_text=t("msg.drop_files_here"),
         data_uploading_text=t("msg.uploading"),
         data_upload_failed_text=t("msg.upload_failed"),

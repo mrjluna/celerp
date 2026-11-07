@@ -531,7 +531,9 @@ def upload_mime(file: UploadFile) -> str:
     """The content type an upload is stored as: the one it was sent with, else (nothing
     sent, or only the generic binary type) the one its name implies, else the generic
     binary type the allowlist refuses."""
-    sent = file.content_type
+    sent = (file.content_type or "").split(";", 1)[0].strip().lower()
+    sent = {"image/x-png": "image/png", "image/jpg": "image/jpeg",
+            "image/pjpeg": "image/jpeg"}.get(sent, sent)
     if sent and sent != "application/octet-stream":
         return sent
     return mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
