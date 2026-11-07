@@ -67,7 +67,8 @@ from celerp.services.csv_export import csv_stream, resolve_export_cols
 from celerp.services.currencies import CURRENCY_CODES, require_currency_code
 from celerp.services.auth import AuthContext, get_auth_context, get_current_company_id, get_current_role, get_current_user
 from celerp.services.permissions import assert_role_permission, get_current_company_settings, locked_authority, reject_price_change, require_permission, role_has_permission
-from celerp_docs.sequences import next_doc_ref, next_draft_ref, peek_draft_ref, require_doc_type, get_all_sequences, update_sequence, list_sequence_key
+from celerp_docs.sequences import next_doc_ref, next_draft_ref, peek_draft_ref, require_doc_type, get_all_sequences, list_sequence_key
+from celerp_docs.sequences import update_sequence_checked, next_available_doc_ref, GUARDED_NUMBERING_TYPES
 from celerp_docs.search import doc_q_clause
 from celerp.services.units import build_unit_map, default_receive_as, get_company_units, is_non_stock_line, is_pieces_unit, is_weight_unit, line_receive_kind, require_moving_fits_units, sum_quantities, unit_decimals, validate_line_quantity
 from celerp.services.money import allocate_pro_rata, books_currency, checked_exchange_rate, discount_from_inputs, doc_rate, document_line_amount, document_line_unit, require_doc_rate, received_share, round_basis, round_money, round_rate, to_base, to_decimal, to_stored_float
@@ -1514,9 +1515,10 @@ def _doc_summary(states: list[dict], today: str, base_currency: str) -> dict:
 
 
 class SequencePatch(BaseModel):
+    model_config = {"extra": "forbid"}
     prefix: str | None = None
     pattern: str | None = None
-    next: int | None = None
+    next: int | None = Field(default=None, ge=1, strict=True)
 
 
 @router.get("/sequences")
@@ -1533,7 +1535,7 @@ async def patch_sequence(doc_type: str, payload: SequencePatch, company_id: str 
     if not company:
         raise HTTPException(status_code=404, detail=t("error.company_unavailable"))
     try:
-        result = update_sequence(company, doc_type, prefix=payload.prefix, pattern=payload.pattern, next_num=payload.next)
+        result = await update_sequence_checked(session, company, doc_type, prefix=payload.prefix, pattern=payload.pattern, next_num=payload.next)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     await session.commit()
@@ -2042,7 +2044,8 @@ async def create_doc_record(payload: DocCreatePayload, company_id, role: str, se
     replay = await find_event_by_idempotency(session, company_id, idem_key)
     if replay is not None:
         return _replay_result(replay, event_type="doc.created", digest=digest)
-    ref_id = payload.ref_id or next_draft_ref(company, payload.doc_type)
+    ref_id = payload.ref_id or (await next_available_doc_ref(session, company, payload.doc_type)
+                               if payload.doc_type in GUARDED_NUMBERING_TYPES else next_draft_ref(company, payload.doc_type))
     entity_id = f"doc:{ref_id}"
 
     # Uniqueness check: reject if a doc with this ref_id already exists

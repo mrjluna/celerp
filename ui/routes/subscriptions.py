@@ -29,6 +29,9 @@ from ui.config import get_token as _token, get_role as _get_role
 from ui.routes.documents import _action_error
 from ui.routes.reports import _get_company
 from ui.routes.settings import _check_permission
+from ui.routes.settings_sales import _numbering_content
+from ui.components.module_off import can_open
+from celerp.services.permissions import role_has_permission
 from ui.i18n import refusal_text, t
 
 logger = logging.getLogger(__name__)
@@ -48,6 +51,7 @@ _DIRECTION_DOC_TYPE = {
     "sales": "subscription_invoice",
     "purchasing": "subscription_po",
 }
+_SUBSCRIPTION_DOC_TYPES = frozenset(_DIRECTION_DOC_TYPE.values())
 
 
 # ---------------------------------------------------------------------------
@@ -224,12 +228,30 @@ def setup_routes(app) -> None:
     # --- List page ---
 
     @app.get("/subscriptions")
-    async def subscriptions_list(request: Request, direction: str = "sales", status: str = ""):
+    async def subscriptions_list(request: Request, direction: str = "sales", status: str = "", tab: str = ""):
         token = _token(request)
         if not token:
             return RedirectResponse("/login", status_code=302)
         if (r := await _check_permission(request, "view_subscriptions", page_view=True)):
             return r
+        company = getattr(request.state, "auth_company", None)
+        if company is None:
+            try:
+                company = await api.get_company(token)
+            except APIError:
+                company = {}
+        numbering_on = can_open(company, "celerp-subscriptions")
+        can_number = numbering_on and role_has_permission(
+            company.get("settings") or {}, api.role_from_company(company), "manage_module_settings")
+        if tab == "numbering":
+            if r := await _check_permission(request, "manage_module_settings"):
+                return r
+            if not numbering_on:
+                return RedirectResponse("/subscriptions", status_code=302)
+            return await base_shell(
+                page_header(t("page.document_numbering")),
+                await _numbering_content(token, _SUBSCRIPTION_DOC_TYPES),
+                title=t("page.document_numbering"), request=request, nav_active="subscriptions_sales")
         q = request.query_params.get("q", "")
         page = int(request.query_params.get("page", 1))
         per_page = per_page_value(request.query_params.get("per_page"), _PER_PAGE)
@@ -271,6 +293,8 @@ def setup_routes(app) -> None:
                        hx_swap="none", cls="btn btn--primary"),
                 A(import_icon(), t("btn.import"), href="/subscriptions/import", cls="btn btn--secondary",
                   data_import_hint=True) if can_import else "",
+                (A(t("settings_sales.tab_numbering"), href="/subscriptions?tab=numbering",
+                   cls="btn btn--secondary") if can_number else ""),
             ),
             _sub_status_cards(all_items, status, direction),
             _sub_table(page_items, direction),

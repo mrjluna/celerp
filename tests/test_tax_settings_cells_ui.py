@@ -196,7 +196,8 @@ async def test_numbering_cell_left_unchanged_saves_nothing(ui_client, field, sho
     type stays on the counter it draws from (here the shared one)."""
     saved = AsyncMock(return_value={})
     ui_client.cookies.update(_authed())
-    with patch("ui.api_client.get_doc_sequences", new=AsyncMock(return_value=[_LEGACY_QUOTATION])), \
+    with patch("ui.api_client.get_company", new=AsyncMock(return_value={"current_role": "owner", "settings": {}})), \
+         patch("ui.api_client.get_doc_sequences", new=AsyncMock(return_value=[_LEGACY_QUOTATION])), \
          patch("ui.api_client.patch_doc_sequence", new=saved):
         r = await ui_client.patch(f"/settings/numbering/quotation/{field}", data={"value": f" {shown} "})
     assert r.status_code == 200 and "cell-error" not in r.text
@@ -207,7 +208,8 @@ async def test_numbering_cell_left_unchanged_saves_nothing(ui_client, field, sho
 async def test_numbering_cell_changed_is_saved(ui_client):
     saved = AsyncMock(return_value={})
     ui_client.cookies.update(_authed())
-    with patch("ui.api_client.get_doc_sequences", new=AsyncMock(return_value=[_LEGACY_QUOTATION])), \
+    with patch("ui.api_client.get_company", new=AsyncMock(return_value={"current_role": "owner", "settings": {}})), \
+         patch("ui.api_client.get_doc_sequences", new=AsyncMock(return_value=[_LEGACY_QUOTATION])), \
          patch("ui.api_client.patch_doc_sequence", new=saved):
         r = await ui_client.patch("/settings/numbering/quotation/prefix", data={"value": "QUOTE"})
     assert r.status_code == 200

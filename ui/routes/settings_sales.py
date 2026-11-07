@@ -62,44 +62,7 @@ async def _numbering_content(token: str, doc_types: frozenset[str]) -> FT:
 
 def _numbering_tab(sequences: list[dict]) -> FT:
     """Render the document numbering settings table."""
-    rows = []
-    edit_title = t("settings.click_to_edit")
-    for seq in sequences:
-        dt = seq["doc_type"]
-        label = doc_type_label(dt)
-        rows.append(Tr(
-            Td(label),
-            Td(
-                Div(
-                    seq.get("prefix") or EMPTY,
-                    hx_get=f"/settings/numbering/{dt}/prefix/edit",
-                    hx_target="this", hx_swap="outerHTML", hx_trigger="click",
-                    title=edit_title, cls="editable-cell",
-                ),
-            ),
-            Td(
-                Div(
-                    seq.get("pattern") or EMPTY,
-                    hx_get=f"/settings/numbering/{dt}/pattern/edit",
-                    hx_target="this", hx_swap="outerHTML", hx_trigger="click",
-                    title=edit_title, cls="editable-cell",
-                ),
-            ),
-            Td(
-                Div(
-                    str(seq.get("next", 1)),
-                    hx_get=f"/settings/numbering/{dt}/next/edit",
-                    hx_target="this", hx_swap="outerHTML", hx_trigger="click",
-                    title=edit_title, cls="editable-cell",
-                ),
-            ),
-            Td(Code(seq.get("preview", ""), cls="numbering-preview")),
-            Td(
-                Button(t("btn.reset"), hx_post=f"/settings/numbering/{dt}/reset",
-                       hx_target="closest tr", hx_swap="outerHTML",
-                       cls="btn btn--xs btn--secondary"),
-            ),
-        ))
+    rows = [_numbering_row(seq) for seq in sequences]
     return Div(
         H3(t("page.document_numbering"), cls="settings-section-title"),
         P(t("settings_sales.numbering_hint"), cls="settings-hint"),
@@ -230,6 +193,8 @@ def setup_routes(app):
 
     @app.get("/settings/numbering/{doc_type}/{field}/edit")
     async def numbering_field_edit(request: Request, doc_type: str, field: str):
+        if r := await _check_permission(request, "manage_module_settings"):
+            return r
         token = _token(request)
         if not token:
             return P(t("error.session_expired"), cls="cell-error")
@@ -262,6 +227,8 @@ def setup_routes(app):
 
     @app.get("/settings/numbering/{doc_type}/{field}/display")
     async def numbering_field_display(request: Request, doc_type: str, field: str):
+        if r := await _check_permission(request, "manage_module_settings"):
+            return r
         token = _token(request)
         if not token:
             return P(t("error.session_expired"), cls="cell-error")
@@ -280,6 +247,8 @@ def setup_routes(app):
 
     @app.patch("/settings/numbering/{doc_type}/{field}")
     async def numbering_field_patch(request: Request, doc_type: str, field: str):
+        if r := await _check_permission(request, "manage_module_settings"):
+            return r
         token = _token(request)
         if not token:
             return P(t("error.session_expired"), cls="cell-error")
@@ -314,6 +283,8 @@ def setup_routes(app):
 
     @app.post("/settings/numbering/{doc_type}/reset")
     async def numbering_reset(request: Request, doc_type: str):
+        if r := await _check_permission(request, "manage_module_settings"):
+            return r
         token = _token(request)
         if not token:
             return P(t("error.session_expired"), cls="cell-error")
@@ -372,4 +343,5 @@ def _numbering_row(seq: dict) -> FT:
         Td(Button(t("btn.reset"), hx_post=f"/settings/numbering/{dt}/reset",
                   hx_target="closest tr", hx_swap="outerHTML",
                   cls="btn btn--xs btn--secondary")),
+        data_numbering_type=dt,
     )
