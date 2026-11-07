@@ -127,6 +127,14 @@
     "documents.gl_impact_balanced": {
       "en": "Balanced",
       "params": []
+    },
+    "documents.gl_impact_source": {
+      "en": "Source document",
+      "params": []
+    },
+    "documents.gl_impact_posted": {
+      "en": "Posted",
+      "params": []
     }
   }
 }

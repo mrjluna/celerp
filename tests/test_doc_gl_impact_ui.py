@@ -64,7 +64,7 @@ _POSTED = {
 def test_posted_document_lists_accounts_party_items_and_journal_links():
     html = to_xml(_doc_gl_impact_section(_POSTED, "doc:inv-1", "USD"))
     for expected in ("1120 Accounts Receivable", "4100 Sales", "5100 Cost of Goods Sold", "Acme Ltd",
-                     "Widget \u00d7 2", "je:auto:doc:inv-1", "je:auto:doc:inv-1:fulfill", t("documents.gl_impact_void")):
+                     "Widget \u00d7 2", "je:auto:doc:inv-1", "je:auto:doc:inv-1:fulfill", t("documents.gl_impact_void").upper()):
         assert expected in html, expected
     assert "/accounting?q=INV-1" in html
     # A line with no resolvable party name shows an empty cell, never the raw contact id.
@@ -78,11 +78,21 @@ def test_each_entry_is_headed_by_its_document_and_date_not_its_journal_key():
     assert 'title="je:auto:doc:inv-1"' in html and ">je:auto:doc:inv-1<" not in html
 
 
-def test_each_entry_totals_its_debits_and_credits_and_says_whether_it_balances():
-    html = to_xml(_doc_gl_impact_section(_POSTED, "doc:inv-1", "USD"))
-    first, second = html.split('class="gl-impact-block"')[1:3]
-    assert "$100.00" in first.split("<tfoot>")[1] and ">Balanced<" in first
-    assert f">{t("acct.out_of_balance")}<" in second  # a one-sided entry is flagged, never hidden
+@pytest.mark.parametrize("doc_type", ["invoice", "quotation", "bill", "purchase_order", "memo", "credit_note", "debit_note"])
+def test_one_ledger_table_totals_only_non_void_lines(doc_type):
+    from bs4 import BeautifulSoup
+    data = {**_POSTED, "doc_type": doc_type}
+    section = BeautifulSoup(to_xml(_doc_gl_impact_section(data, "doc:inv-1", "USD")), "html.parser")
+    assert len(section.select("table")) == 1
+    assert len(section.select("tbody tr")) == 3
+    assert section.select_one("th").text == "Source document"
+    assert section.select_one(".gl-impact-source a") is None
+    assert section.select_one(".gl-impact-row--void").text.find("VOID") >= 0
+    assert section.select_one(".gl-impact-row--posted").text.find("Posted") >= 0
+    footer = section.select_one("tfoot").text
+    assert footer.count("$100.00") == 2 and "Balanced" in footer
+    assert "$42.00" not in footer
+    assert "Related records" not in section.text
 
 
 def test_a_line_names_its_item_with_quantity_and_unit_not_the_raw_memo():
@@ -154,3 +164,17 @@ async def test_endpoint_displays_a_ledger_failure_instead_of_an_empty_section(ui
     assert response.status_code == 200
     assert t("documents.gl_impact") in response.text
     assert "Unavailable" in response.text
+
+
+@pytest.mark.parametrize("unit,expected", [("kg", "Widget × 1.5 kg"), ("", "Widget × 1.5"), ("piece", "Widget × 1.5 piece")])
+def test_gl_item_keeps_its_name_quantity_and_optional_unit(unit, expected):
+    from ui.routes.documents import _gl_line_item
+    assert _gl_line_item({"item":"Widget","quantity":1.5,"unit":unit}) == expected
+
+
+def test_single_posted_entry_renders_one_table_with_balanced_totals():
+    from bs4 import BeautifulSoup
+    data={**_POSTED,"entries":_POSTED["entries"][:1]}
+    html=BeautifulSoup(to_xml(_doc_gl_impact_section(data,"doc:inv-1","USD")),"html.parser")
+    assert len(html.select('table'))==1 and len(html.select('tbody tr'))==2
+    assert 'Balanced' in html.select_one('tfoot').text

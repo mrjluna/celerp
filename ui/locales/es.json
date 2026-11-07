@@ -7133,5 +7133,7 @@
   "date.month_short_5": "May",
   "date.month_short_6": "Jun",
   "date.month_short_1": "Jan",
-  "date.month_short_8": "Aug"
+  "date.month_short_8": "Aug",
+  "documents.gl_impact_source": "Source document",
+  "documents.gl_impact_posted": "Posted"
 }

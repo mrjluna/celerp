@@ -9,6 +9,7 @@ as status text are not icons and are always allowed, and so is ``celerp/cli.py``
 """
 from __future__ import annotations
 
+import ast
 import json
 import re
 from pathlib import Path
@@ -45,7 +46,7 @@ def _ui_sources() -> list[Path]:
     for top in ("ui", "default_modules"):
         for path in (ROOT / top).rglob("*"):
             rel = path.relative_to(ROOT)
-            if path.suffix in (".py", ".js") and not path.name.endswith(".min.js") and not (_SKIPPED_DIRS & set(rel.parts)):
+            if path.suffix in (".py", ".js", ".css", ".html", ".svg") and not path.name.endswith(".min.js") and not (_SKIPPED_DIRS & set(rel.parts)):
                 found.append(path)
     return sorted(found)
 
@@ -53,7 +54,16 @@ def _ui_sources() -> list[Path]:
 def _in_code() -> dict[str, int]:
     counts = {}
     for path in _ui_sources():
-        n = len(_emoji(path.read_text(encoding="utf-8")))
+        text = path.read_text(encoding="utf-8")
+        if path.suffix == ".py":
+            # Read runtime literals too: escaped pictographs are invisible to a raw source scan.
+            text = "".join(n.value for n in ast.walk(ast.parse(text))
+                           if isinstance(n, ast.Constant) and isinstance(n.value, str))
+        else:
+            text = re.sub(r"/\*.*?\*/|<!--.*?-->", "", text, flags=re.S)
+            text = re.sub(r"\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})",
+                          lambda m: chr(int(m.group()[2:], 16)), text)
+        n = len(_emoji(text))
         if n:
             counts[path.relative_to(ROOT).as_posix()] = n
     return counts
@@ -86,3 +96,15 @@ def test_the_check_finds_an_emoji():
     assert _emoji("\u2699\ufe0f Settings") == ["\u2699"]
     assert _emoji("\u2713 Saved \u2717 Failed") == []
     assert _emoji("plain text, \u00e9\u2014\u2192") == []
+
+
+def test_escaped_money_bag_and_credit_card_are_detected():
+    source = r'icon = "\U0001f4b0"; other = "\U0001f4b3"'
+    strings = [n.value for n in ast.walk(ast.parse(source)) if isinstance(n, ast.Constant)]
+    assert sum(len(_emoji(value)) for value in strings) == 2
+
+
+def test_guard_includes_the_payments_card_and_stylesheets():
+    paths = {p.relative_to(ROOT).as_posix() for p in _ui_sources()}
+    assert "ui/routes/documents.py" in paths
+    assert "ui/static/app.css" in paths

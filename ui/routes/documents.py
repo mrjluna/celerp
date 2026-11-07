@@ -4178,7 +4178,7 @@ celerpUpdateBulkAlloc();
                     "doc_type": doc_type,
                     "contact_name": contact_name,
                     "contact_id": contact_id,
-                    "date": p.get("payment_date") or p.get("recorded_at", "")[:10],
+                    "date": p.get("payment_date") or (p.get("recorded_at") or "")[:10],
                     "method": p.get("method", ""),
                     "bank_account": p.get("bank_account", ""),
                     "reference": p.get("reference", ""),
@@ -6255,7 +6255,7 @@ def _payment_section(doc: dict, bank_accounts: list[dict] | None = None, is_oper
 
     # Labels
     section_title = t("documents.credit_application") if is_credit_note else t("documents.payments")
-    section_icon = "\U0001f4b3" if is_credit_note else "\U0001f4b0"
+    section_icon = "credit-card"
     add_label = t(note["apply_title"]) if is_credit_note else (t("btn.record_payment") if is_bill else t("documents.receive_payment"))
 
     # Deleted payments are tombstoned in the doc, not removed; only voided ones
@@ -6276,7 +6276,7 @@ def _payment_section(doc: dict, bank_accounts: list[dict] | None = None, is_oper
     history_rows = []
     for p in payments:
         voided = p.get("status") == "voided"
-        p_date = p.get("payment_date") or p.get("recorded_at", "")[:10]
+        p_date = p.get("payment_date") or (p.get("recorded_at") or "")[:10]
         p_method = p.get("method", "")
         p_bank = p.get("bank_account", "")
         p_ref = p.get("reference", "")
@@ -6493,14 +6493,14 @@ def _payment_section(doc: dict, bank_accounts: list[dict] | None = None, is_oper
                         cls="form-row",
                     ),
                     operation_key_input(),
-                    Button(t("btn.save_payment"), type="submit", cls="btn btn--primary btn--sm"),
+                    Div(Button(t("btn.save_payment"), type="submit", cls="btn btn--primary btn--sm"), cls="form-actions"),
                     hx_post=f"/docs/{entity_id}/payment", hx_swap="none", cls="form-card",
                 ),
                 cls="payment-form-section",
             )
 
     return Div(
-        Div(Span(section_icon, cls="section-icon"), H3(section_title, cls="section-title"), cls="section-header"),
+        Div(Span(icon(section_icon), cls="section-icon"), H3(section_title, cls="section-title"), cls="section-header"),
         history_table,
         summary_line,
         add_form,
@@ -11439,13 +11439,12 @@ def _gl_line_item(ln: dict) -> str:
     qty = ln.get("quantity")
     if qty is None:
         return str(ln["item"])
-    unit = display_unit(ln.get("unit")) if ln.get("unit") and ln.get("unit") != "piece" else ""
+    unit = display_unit(ln.get("unit")) if ln.get("unit") else ""
     return f"{ln['item']} \u00d7 {fmt_qty(qty)}{' ' + unit if unit else ''}"
 
 
 def _doc_gl_impact_section(data: dict, entity_id: str, currency: str | None) -> FT:
-    """The journal entries a document posted, as the books hold them: one table per
-    entry, so each balances on its own and links back to the journal."""
+    """One document ledger table, retaining void lines but totalling live postings only."""
     entries = data.get("entries") or []
     heading = Div(Span(icon("book-open"), cls="section-icon"), H3(t("documents.gl_impact"), cls="section-title"),
                   cls="section-header")
@@ -11453,45 +11452,48 @@ def _doc_gl_impact_section(data: dict, entity_id: str, currency: str | None) -> 
         draft = str(data.get("status") or "").lower() == "draft" and data.get("doc_type") in _POSTING_DOC_TYPES
         body = P(t("documents.gl_impact_not_posted" if draft else "documents.gl_impact_none"), cls="empty-state-msg")
         return Div(heading, body, id=_gl_impact_dom_id(entity_id), cls="doc-section")
-    doc_ref = str(data.get("doc_ref") or "")
-    tables = []
-    for e in entries:
-        voided = e.get("status") == "void"
-        rows = []
-        debit_total = credit_total = Decimal(0)
-        for ln in e.get("lines") or []:
-            debit_total += Decimal(str(ln.get("debit") or 0))
-            credit_total += Decimal(str(ln.get("credit") or 0))
+    rows = []
+    debit_total = credit_total = Decimal(0)
+    for entry in entries:
+        voided = entry.get("status") == "void"
+        ref = str((entry.get("source_doc") or {}).get("doc_ref") or data.get("doc_ref") or "")
+        date = _readable_date(entry.get("ts"))
+        label = entry.get("entry_ref") or t("documents.gl_impact_entry_for", ref=ref, date=date)
+        for line in entry.get("lines") or []:
+            if not voided:
+                debit_total += Decimal(str(line.get("debit") or 0))
+                credit_total += Decimal(str(line.get("credit") or 0))
             rows.append(Tr(
-                Td(f"{ln.get('account')} {ln.get('name') or ''}".strip()),
-                Td(fmt_money(ln["debit"], currency) if ln.get("debit") else EMPTY, cls="cell--number"),
-                Td(fmt_money(ln["credit"], currency) if ln.get("credit") else EMPTY, cls="cell--number"),
-                Td(ln.get("party_name") or EMPTY),
-                Td(_gl_line_item(ln)),
+                Td(ref or EMPTY, cls="gl-impact-source"),
+                Td(A(label, href="/accounting?q=" + quote_plus(ref or str(entry.get("je_id") or "")),
+                     title=str(entry.get("je_id") or ""), cls="table-link")),
+                Td(date or EMPTY),
+                Td(Span(t("documents.gl_impact_void").upper() if voided else t("documents.gl_impact_posted"),
+                        cls="badge badge--void" if voided else "badge badge--accepted")),
+                Td(f"{line.get('account') or ''} {line.get('name') or ''}".strip()),
+                Td(fmt_money(line["debit"], currency) if line.get("debit") else EMPTY, cls="cell--number"),
+                Td(fmt_money(line["credit"], currency) if line.get("credit") else EMPTY, cls="cell--number"),
+                Td(line.get("party_name") or EMPTY),
+                Td(_gl_line_item(line)),
+                cls="gl-impact-row--void" if voided else "gl-impact-row--posted",
             ))
-        balanced = debit_total == credit_total
-        ref = str((e.get("source_doc") or {}).get("doc_ref") or doc_ref or "")
-        title = t("documents.gl_impact_entry_for", ref=ref, date=_readable_date(e.get("ts"))) if ref \
-            else _readable_date(e.get("ts"))
-        link = A(title, href="/accounting?q=" + quote_plus(ref or str(e.get("je_id") or "")), cls="table-link",
-                 title=str(e.get("je_id") or ""))
-        tables.append(Div(
-            Div(link, Span(t("documents.gl_impact_void"), cls="badge") if voided else "", cls="gl-impact-entry"),
-            Table(
-                Thead(Tr(Th(t("documents.gl_impact_account")), Th(t("documents.gl_impact_debit"), cls="cell--number"),
-                         Th(t("documents.gl_impact_credit"), cls="cell--number"), Th(t("documents.gl_impact_party")),
-                         Th(t("th.item")))),
-                Tbody(*rows),
-                Tfoot(Tr(
-                    Td(t("th.total"), cls="gl-impact-total-label"),
-                    Td(fmt_money(float(debit_total), currency), cls="cell--number"),
-                    Td(fmt_money(float(credit_total), currency), cls="cell--number"),
-                    Td(Span(t("documents.gl_impact_balanced" if balanced else "acct.out_of_balance"),
-                            cls="badge badge--accepted" if balanced else "badge badge--danger"), colspan="2"),
-                    cls="gl-impact-totals")),
-                cls="data-table doc-card-table"),
-            cls="gl-impact-block"))
-    return Div(heading, *tables, id=_gl_impact_dom_id(entity_id), cls="doc-section")
+    balanced = debit_total == credit_total
+    table = Table(
+        Thead(Tr(Th(t("documents.gl_impact_source")), Th(t("acct.soa_kind_journal")), Th(t("th.date")),
+                 Th(t("th.status")), Th(t("documents.gl_impact_account")),
+                 Th(t("documents.gl_impact_debit"), cls="cell--number"),
+                 Th(t("documents.gl_impact_credit"), cls="cell--number"),
+                 Th(t("documents.gl_impact_party")), Th(t("th.item")))),
+        Tbody(*rows),
+        Tfoot(Tr(Td(t("th.total") + " (" + t("documents.gl_impact_posted") + ")", colspan="5"),
+                 Td(fmt_money(float(debit_total), currency), cls="cell--number"),
+                 Td(fmt_money(float(credit_total), currency), cls="cell--number"),
+                 Td(Span(t("documents.gl_impact_balanced" if balanced else "acct.out_of_balance"),
+                         cls="badge badge--accepted" if balanced else "badge badge--danger"), colspan="2"),
+                 cls="gl-impact-totals")),
+        cls="data-table doc-card-table",
+    )
+    return Div(heading, Div(table, cls="table-scroll-wrap"), id=_gl_impact_dom_id(entity_id), cls="doc-section")
 
 
 # A status card: its label, colour, the list filter its link applies and how it reads its count

@@ -3771,3 +3771,10 @@ svg[aria-hidden="true"] { vertical-align: -0.125em; flex-shrink: 0; }
 .gl-impact-block + .gl-impact-block { border-top: 1px solid var(--c-border); }
 .gl-impact-entry { display: flex; align-items: center; gap: 8px; padding: 8px 14px 4px; font-size: 12px; font-weight: 600; }
 .gl-impact-totals td { font-weight: 600; border-top: 1px solid var(--c-border); background: var(--c-bg3); }
+
+/* Voided ledger lines stay readable and separate from the live totals. */
+.gl-impact-row--void { background: var(--c-bg3); }
+.gl-impact-row--void td:nth-child(5), .gl-impact-row--void td:nth-child(6),
+.gl-impact-row--void td:nth-child(7) { text-decoration: line-through; }
+.payment-form-section > .form-subtitle { padding: 0; }
+.payment-form-section .form-actions { display: flex; justify-content: flex-start; padding-top: 12px; }
