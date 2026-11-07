@@ -3060,31 +3060,31 @@ async def download_contact_file(token: str, contact_id: str, file_id: str) -> ht
         return r
 
 
-async def upload_doc_file(token: str, entity_id: str, file_data: bytes, filename: str, content_type: str, description: str = "", document_tag: str = "") -> dict:
+async def upload_doc_file(token: str, entity_id: str, file_data: bytes, filename: str, content_type: str, description: str = "", document_tag: str = "", *, resource: str = "docs") -> dict:
     async with _bulk_api_client(token) as c:
         files = {"file": (filename, file_data, content_type)}
         data = {"description": description, "document_tag": document_tag}
-        return _raise(await c.post(f"/docs/{entity_id}/files", files=files, data=data)).json()
+        return _raise(await c.post(f"/{resource}/{entity_id}/files", files=files, data=data)).json()
 
 
-async def tag_doc_file(token: str, entity_id: str, file_id: str, document_tag: str) -> dict:
+async def tag_doc_file(token: str, entity_id: str, file_id: str, document_tag: str, *, resource: str = "docs") -> dict:
     async with _api_client(token) as c:
-        return _raise(await c.patch(f"/docs/{entity_id}/files/{file_id}/tag", data={"document_tag": document_tag})).json()
+        return _raise(await c.patch(f"/{resource}/{entity_id}/files/{file_id}/tag", data={"document_tag": document_tag})).json()
 
 
-async def patch_doc_file_description(token: str, entity_id: str, file_id: str, description: str) -> dict:
+async def patch_doc_file_description(token: str, entity_id: str, file_id: str, description: str, *, resource: str = "docs") -> dict:
     async with _api_client(token) as c:
-        return _raise(await c.patch(f"/docs/{entity_id}/files/{file_id}/description", data={"description": description})).json()
+        return _raise(await c.patch(f"/{resource}/{entity_id}/files/{file_id}/description", data={"description": description})).json()
 
 
-async def delete_doc_file(token: str, entity_id: str, file_id: str) -> dict:
+async def delete_doc_file(token: str, entity_id: str, file_id: str, *, resource: str = "docs") -> dict:
     async with _api_client(token) as c:
-        return _raise(await c.delete(f"/docs/{entity_id}/files/{file_id}")).json()
+        return _raise(await c.delete(f"/{resource}/{entity_id}/files/{file_id}")).json()
 
 
-async def download_doc_file(token: str, entity_id: str, file_id: str) -> httpx.Response:
+async def download_doc_file(token: str, entity_id: str, file_id: str, *, resource: str = "docs") -> httpx.Response:
     async with _bulk_api_client(token) as c:
-        return _raise(await c.get(f"/docs/{entity_id}/files/{file_id}"))
+        return _raise(await c.get(f"/{resource}/{entity_id}/files/{file_id}"))
 
 
 async def download_item_file(token: str, entity_id: str, file_id: str) -> httpx.Response:

@@ -669,6 +669,7 @@ async def _commit_landed(engine, xact: str) -> bool:
 FILE_ATTACHED_EVENTS = {
     "contact": "crm.contact.file_attached",
     "doc": "doc.file_attached",
+    "list": "list.file_attached",
     "item": "item.file.attached",
 }
 

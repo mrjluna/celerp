@@ -4564,8 +4564,9 @@ celerpUpdateBulkAlloc();
 
     # ── Doc file management (upload / delete / tag / description / download) ──
 
-    @app.post("/docs/{entity_id}/files")
     async def doc_upload_file(request: Request, entity_id: str):
+        resource = "lists" if request.url.path.startswith("/lists/") else "docs"
+        file_args = {"resource": resource} if resource == "lists" else {}
         token = _token(request)
         if not token:
             return files_session_expired()
@@ -4579,55 +4580,60 @@ celerpUpdateBulkAlloc();
         filename = getattr(file, "filename", "upload")
         content_type = getattr(file, "content_type", "application/octet-stream") or "application/octet-stream"
         try:
-            await api.upload_doc_file(token, entity_id, content, filename, content_type, description, document_tag)
-            doc = await api.get_doc(token, entity_id)
+            await api.upload_doc_file(token, entity_id, content, filename, content_type, description, document_tag, **file_args)
+            doc = await (api.get_list(token, entity_id) if resource == "lists" else api.get_doc(token, entity_id))
         except APIError as e:
             return files_error(error_message(e), e.status)
-        return _doc_files_section("doc", entity_id, _enrich_doc_files(doc))
+        return _doc_files_section("list" if resource == "lists" else "doc", entity_id, _enrich_doc_files(doc))
 
-    @app.delete("/docs/{entity_id}/files/{file_id}")
     async def doc_delete_file(request: Request, entity_id: str, file_id: str):
+        resource = "lists" if request.url.path.startswith("/lists/") else "docs"
+        file_args = {"resource": resource} if resource == "lists" else {}
         token = _token(request)
         if not token:
             return files_session_expired()
         try:
-            await api.delete_doc_file(token, entity_id, file_id)
-            doc = await api.get_doc(token, entity_id)
+            await api.delete_doc_file(token, entity_id, file_id, **file_args)
+            doc = await (api.get_list(token, entity_id) if resource == "lists" else api.get_doc(token, entity_id))
         except APIError as e:
             return files_error(error_message(e), e.status)
-        return _doc_files_section("doc", entity_id, _enrich_doc_files(doc))
+        return _doc_files_section("list" if resource == "lists" else "doc", entity_id, _enrich_doc_files(doc))
 
-    @app.post("/docs/{entity_id}/files/{file_id}/tag")
     async def doc_tag_file(request: Request, entity_id: str, file_id: str):
+        resource = "lists" if request.url.path.startswith("/lists/") else "docs"
+        file_args = {"resource": resource} if resource == "lists" else {}
         token = _token(request)
         if not token:
             return files_session_expired()
         form = await request.form()
         document_tag = str(form.get("document_tag", "")).strip()
         try:
-            await api.tag_doc_file(token, entity_id, file_id, document_tag)
-            doc = await api.get_doc(token, entity_id)
+            await api.tag_doc_file(token, entity_id, file_id, document_tag, **file_args)
+            doc = await (api.get_list(token, entity_id) if resource == "lists" else api.get_doc(token, entity_id))
         except APIError as e:
             return files_error(error_message(e), e.status)
-        return _doc_files_section("doc", entity_id, _enrich_doc_files(doc))
+        return _doc_files_section("list" if resource == "lists" else "doc", entity_id, _enrich_doc_files(doc))
 
-    @app.post("/docs/{entity_id}/files/{file_id}/description")
     async def doc_patch_file_description(request: Request, entity_id: str, file_id: str):
+        resource = "lists" if request.url.path.startswith("/lists/") else "docs"
+        file_args = {"resource": resource} if resource == "lists" else {}
         token = _token(request)
         if not token:
             return files_session_expired()
         form = await request.form()
         description = str(form.get("description", "")).strip()
         try:
-            await api.patch_doc_file_description(token, entity_id, file_id, description)
-            doc = await api.get_doc(token, entity_id)
+            await api.patch_doc_file_description(token, entity_id, file_id, description, **file_args)
+            doc = await (api.get_list(token, entity_id) if resource == "lists" else api.get_doc(token, entity_id))
         except APIError as e:
             return files_error(error_message(e), e.status)
-        return _doc_files_section("doc", entity_id, _enrich_doc_files(doc))
+        return _doc_files_section("list" if resource == "lists" else "doc", entity_id, _enrich_doc_files(doc))
 
     @app.get("/docs/{entity_id}/gl-impact")
     async def doc_gl_impact(request: Request, entity_id: str):
         from starlette.responses import Response as _R
+        resource = "lists" if request.url.path.startswith("/lists/") else "docs"
+        file_args = {"resource": resource} if resource == "lists" else {}
         token = _token(request)
         if not token:
             return _R("", status_code=401)
@@ -4649,6 +4655,8 @@ celerpUpdateBulkAlloc();
     @app.get("/docs/{entity_id}/history")
     async def doc_history_paginated(request: Request, entity_id: str):
         from starlette.responses import Response as _R
+        resource = "lists" if request.url.path.startswith("/lists/") else "docs"
+        file_args = {"resource": resource} if resource == "lists" else {}
         token = _token(request)
         if not token:
             return _R("", status_code=401)
@@ -4698,17 +4706,18 @@ celerpUpdateBulkAlloc();
             headers["HX-Push-Url"] = f"/docs/{entity_id}" + (f"?{query}" if query else "")
         return _R(to_xml(card), media_type="text/html", headers=headers)
 
-    @app.get("/docs/{entity_id}/files/_section")
     async def doc_files_section(request: Request, entity_id: str):
+        resource = "lists" if request.url.path.startswith("/lists/") else "docs"
+        file_args = {"resource": resource} if resource == "lists" else {}
         token = _token(request)
         if not token:
             return files_session_expired()
         qp = request.query_params
         try:
-            doc = await api.get_doc(token, entity_id)
+            doc = await (api.get_list(token, entity_id) if resource == "lists" else api.get_doc(token, entity_id))
         except APIError as e:
             return files_error(error_message(e), e.status)
-        return _doc_files_section("doc", entity_id, _enrich_doc_files(doc),
+        return _doc_files_section("list" if resource == "lists" else "doc", entity_id, _enrich_doc_files(doc),
             page=int(qp.get("page", "1") or "1"),
             sort_dir=qp.get("sort_dir", "desc"),
             tag_filter=qp.get("tag_filter", ""),
@@ -4717,17 +4726,31 @@ celerpUpdateBulkAlloc();
             search=qp.get("search", ""),
         )
 
-    @app.get("/docs/{entity_id}/files/{file_id}/download")
     async def doc_download_file(request: Request, entity_id: str, file_id: str):
         from starlette.responses import Response as _R
+        resource = "lists" if request.url.path.startswith("/lists/") else "docs"
+        file_args = {"resource": resource} if resource == "lists" else {}
         token = _token(request)
         if not token:
             return RedirectResponse("/login", status_code=302)
         try:
-            r = await api.download_doc_file(token, entity_id, file_id)
+            r = await api.download_doc_file(token, entity_id, file_id, **file_args)
         except APIError as e:
             return _action_error(e)
         return _R(content=r.content, status_code=r.status_code, headers=dict(r.headers))
+
+    app.post("/docs/{entity_id}/files")(doc_upload_file)
+    app.post("/lists/{entity_id}/files")(doc_upload_file)
+    app.delete("/docs/{entity_id}/files/{file_id}")(doc_delete_file)
+    app.delete("/lists/{entity_id}/files/{file_id}")(doc_delete_file)
+    app.post("/docs/{entity_id}/files/{file_id}/tag")(doc_tag_file)
+    app.post("/lists/{entity_id}/files/{file_id}/tag")(doc_tag_file)
+    app.post("/docs/{entity_id}/files/{file_id}/description")(doc_patch_file_description)
+    app.post("/lists/{entity_id}/files/{file_id}/description")(doc_patch_file_description)
+    app.get("/docs/{entity_id}/files/_section")(doc_files_section)
+    app.get("/lists/{entity_id}/files/_section")(doc_files_section)
+    app.get("/docs/{entity_id}/files/{file_id}/download")(doc_download_file)
+    app.get("/lists/{entity_id}/files/{file_id}/download")(doc_download_file)
 
     @app.get("/lists")
     async def lists_page(request: Request):
@@ -11372,7 +11395,7 @@ async function celerpCsvImport(input, entityId) {{
             Summary(
                 H2(t("label.files"), cls="internal-section-title"),
             ),
-            _doc_files_section("doc", entity_id, _enrich_doc_files(doc)),
+            _doc_files_section("list" if doc_type == "list" else "doc", entity_id, _enrich_doc_files(doc)),
             cls="doc-internal",
         ),
         # --- GL Impact section (accounting permission only) ---
