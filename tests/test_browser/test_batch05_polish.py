@@ -52,3 +52,18 @@ def test_record_link_follows_selection_and_disappears_when_cleared(page, ui_serv
     expect(link).to_be_visible()
     page.locator('#polish-test input[type=hidden]').evaluate('(e)=>{e.value="";e.dispatchEvent(new Event("change"))}')
     expect(link).to_be_hidden()
+
+@pytest.mark.parametrize('kind', ['invoice', 'bill', 'credit_note', 'debit_note'])
+@pytest.mark.parametrize('count', [0,3])
+def test_payment_actions_align_with_their_form_rows(page, ui_server, kind, count):
+    from ui.routes.documents import _payment_section
+    payments=[{'index':i,'payment_date':'2026-11-07','amount':5,'method':'cash'} for i in range(count)]
+    doc={'entity_id':'doc:1','doc_type':kind,'status':'final','total':100,'amount_outstanding':100-5*count,'payments':payments}
+    mount(page,ui_server,to_xml(_payment_section(doc)))
+    forms=page.locator('#polish-test .payment-form-section form')
+    assert forms.count()>=1
+    for form in forms.all():
+        row=form.locator('.form-row').first.bounding_box()
+        button=form.locator('button[type=submit]').last.bounding_box()
+        assert abs(row['x']-button['x'])<=1, (row,button)
+        assert button['y']>=row['y']+row['height']
