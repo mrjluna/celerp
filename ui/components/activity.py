@@ -10,6 +10,7 @@ All activity/history sections should use ``activity_table()`` for DRY rendering.
 """
 
 from __future__ import annotations
+from ui.components.cards import section_header
 
 from decimal import Decimal, InvalidOperation
 
@@ -1436,8 +1437,7 @@ def history_table(ledger: list[dict], *, title: str | None = None, section_cls: 
         category_names=category_names, deleted=deleted, docs_on=docs_on)
     shown = page_rows if page_rows is not None else filter_history(all_rows, filters)
     visible = shown[:max_display] if max_display else shown
-    header = Div(Span(_icon("history"), cls="section-icon"), H3(title or t("documents.history"), cls="section-title"),
-                 cls="section-header") if show_header else ""
+    header = section_header(title or t("documents.history"), icon_name="history") if show_header else ""
     controls = _history_filters(all_rows, filters, filter_url, filter_target) \
         if filter_url and (all_rows or filters) else ""
 

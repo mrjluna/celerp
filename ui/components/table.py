@@ -951,7 +951,7 @@ def paired_display_cell(
         else Span(pri_disp, cls="paired-primary paired-primary--readonly")
     )
     if hide_empty_secondary and sec_disp == EMPTY and not both_empty:
-        sec_disp = icon("pencil", size=0.75)
+        sec_disp = icon("pencil", size=0.75) if secondary_editable else ""
     sec_span = (
         Span(
             sec_disp,

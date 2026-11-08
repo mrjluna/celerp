@@ -15482,7 +15482,7 @@ class TestPriceLists:
         html = r.text
         assert 'id="derived_unit_trade_price"' in html
         assert 'hx-swap-oob="true"' in html
-        assert ">70<" in html            # refreshed unit value
+        assert ">$70.00<" in html        # shared currency formatter for the refreshed unit
         assert "140.00" in html          # refreshed total (70 x 2)
 
     @pytest.mark.asyncio

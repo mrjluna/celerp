@@ -7,6 +7,7 @@ Used by contacts, documents, and any other entity that supports file attachments
 Single source for document tag slugs via _DOCUMENT_TAGS.
 """
 from __future__ import annotations
+from ui.components.cards import section_header
 
 from ui.components.icons import icon
 from fasthtml.common import *
@@ -607,7 +608,7 @@ def files_section(
     )
 
     children = [
-        H3(title or t("label.files"), cls="section-title"),
+        section_header(title or t("label.files"), icon_name="paperclip"),
         filter_bar,
         Div(table, cls="table-scroll-wrap"),
         Script(resize_js),
@@ -627,5 +628,6 @@ def files_section(
         *children[1:],
         Script(FILES_JS),
         id=f"files-section-{sid}",
+        cls="doc-section",
         data_quiet_error="1",
     )

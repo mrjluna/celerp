@@ -46,6 +46,7 @@ from ui.components.import_access import can_import_documents
 from ui.module_slots import connected_connector_ids, required_connectors, visible_slot_contributions
 from celerp.output.document_context import prepare_document_output
 from ui.components.notes import notes_tab as _shared_notes_tab, note_edit_form as _shared_note_edit_form
+from ui.components.cards import section_header
 from ui.components.files import files_error, files_section as _shared_doc_files_section, files_session_expired
 from ui.components.doc_money import ATTRS as DOC_MONEY_ATTRS, redraw_trigger as doc_money_redraw
 from ui.components.preview_confirm import FORM_ATTRS as CONFIRMS_PREVIEW, PREVIEW_ATTRS, binding_input, confirmed_binding
@@ -6504,7 +6505,7 @@ def _payment_section(doc: dict, bank_accounts: list[dict] | None = None, is_oper
             )
 
     return Div(
-        Div(Span(icon(section_icon), cls="section-icon"), H3(section_title, cls="section-title"), cls="section-header"),
+        section_header(section_title, icon_name=section_icon),
         history_table,
         summary_line,
         add_form,
@@ -11443,8 +11444,7 @@ def _gl_line_item(ln: dict) -> str:
 def _doc_gl_impact_section(data: dict, entity_id: str, currency: str | None) -> FT:
     """One document ledger table, retaining void lines but totalling live postings only."""
     entries = data.get("entries") or []
-    heading = Div(Span(icon("book-open"), cls="section-icon"), H3(t("documents.gl_impact"), cls="section-title"),
-                  cls="section-header")
+    heading = section_header(t("documents.gl_impact"), icon_name="book-open")
     if not entries:
         draft = str(data.get("status") or "").lower() == "draft" and data.get("doc_type") in _POSTING_DOC_TYPES
         body = P(t("documents.gl_impact_not_posted" if draft else "documents.gl_impact_none"), cls="empty-state-msg")
