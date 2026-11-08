@@ -135,6 +135,42 @@
     "documents.gl_impact_posted": {
       "en": "Posted",
       "params": []
+    },
+    "inventory.split_no_weight": {
+      "en": "No net weight is recorded for this item.",
+      "params": []
+    },
+    "inventory.packaging_type": {
+      "en": "Packaging type",
+      "params": []
+    },
+    "inventory.description_help": {
+      "en": "Full product description, including detailed specifications.",
+      "params": []
+    },
+    "inventory.short_description_help": {
+      "en": "A brief product summary for compact lists and labels.",
+      "params": []
+    },
+    "inventory.split_manual": {
+      "en": "Manual split",
+      "params": []
+    },
+    "inventory.lifecycle_actions": {
+      "en": "Lifecycle actions",
+      "params": []
+    },
+    "inventory.confirm_expire": {
+      "en": "Expire this item?",
+      "params": []
+    },
+    "inventory.confirm_archive": {
+      "en": "Archive this item?",
+      "params": []
+    },
+    "inventory.confirm_revert_draft": {
+      "en": "Revert this item to draft?",
+      "params": []
     }
   }
 }

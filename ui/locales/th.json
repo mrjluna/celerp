@@ -7135,5 +7135,14 @@
   "date.month_short_1": "Jan",
   "date.month_short_8": "Aug",
   "documents.gl_impact_source": "Source document",
-  "documents.gl_impact_posted": "Posted"
+  "documents.gl_impact_posted": "Posted",
+  "inventory.split_no_weight": "No net weight is recorded for this item.",
+  "inventory.packaging_type": "Packaging type",
+  "inventory.description_help": "Full product description, including detailed specifications.",
+  "inventory.short_description_help": "A brief product summary for compact lists and labels.",
+  "inventory.split_manual": "Manual split",
+  "inventory.lifecycle_actions": "Lifecycle actions",
+  "inventory.confirm_expire": "Expire this item?",
+  "inventory.confirm_archive": "Archive this item?",
+  "inventory.confirm_revert_draft": "Revert this item to draft?"
 }
