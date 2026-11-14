@@ -106,14 +106,20 @@ def _normalize_attributes(current: dict) -> None:
     current["attributes"] = attrs
 
 
-def _written(event_type: str, data: dict) -> dict:
+def _written(event_type: str, data: dict, before: dict) -> dict:
     """The fields an event writes, with their new values. An edit or a CSV upsert names each
-    field it sets or clears; a create or snapshot gives a value only where it carries one."""
+    field it sets or clears; a create or snapshot gives a value only where it carries one. An
+    edit that replaces the whole attributes (``fields_changed["attributes"]``) writes each key
+    it gives and clears each key holding a value in the replaced attributes (``before``'s) that
+    it leaves out."""
     if event_type == "item.updated":
         changed = data.get("fields_changed") or {}
         out = {k: c.get("new") for k, c in changed.items() if k != "attributes" and isinstance(c, dict)}
         whole = (changed.get("attributes") or {}).get("new") if isinstance(changed.get("attributes"), dict) else None
-        out.update({k: v for k, v in (whole or {}).items() if v not in (None, "")})
+        if isinstance(whole, dict):
+            out.update({k: None for k, v in (before.get("attributes") or {}).items()
+                        if k not in whole and v not in (None, "")})
+            out.update(whole)
         return out
     if event_type in {"item.created", "item.snapshot", "item.patched"}:
         attrs = data.get("attributes") if isinstance(data.get("attributes"), dict) else {}
@@ -461,7 +467,7 @@ def _stamp_status_doc(current: dict, data: dict) -> None:
 
 def apply_item_event(state: dict, event_type: str, data: dict) -> dict:
     current = _apply_item_event(state, event_type, data)
-    _fold_legacy_category_fields(current, _written(event_type, data))
+    _fold_legacy_category_fields(current, _written(event_type, data, state))
     _keep_on_books(state, current, event_type, data)
     return current
 

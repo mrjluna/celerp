@@ -7,7 +7,8 @@ and a client of such a release can still write them. Each event's write of an ol
 the core field at the moment it is applied, in event order: a later update or clear of the old
 key updates or clears the core field. A core field written in the same event wins over the old
 key there; any later event still applies. A weight that is not a finite number stays in the
-attributes as given.
+attributes as given. An edit that replaces the whole attributes (as splitting a lot does) writes
+each old key it gives, and clears an old key the replaced attributes held that it leaves out.
 
 Histories are generated from fixed seeds and replayed through the projection, then compared
 with a reference fold that keeps only the four values involved.
@@ -23,6 +24,8 @@ from sqlalchemy import select
 _SEEDS = range(60)
 _HISTORIES_PER_SEED = 25
 _ABSENT = object()
+_LEFT_OUT = object()  # an old key a whole-attributes replacement does not carry
+_WHOLE = "item.updated:attributes"  # an edit that replaces the whole attributes
 
 
 def _grams(value):
@@ -62,18 +65,29 @@ def _writes(rng, *, create: bool) -> dict:
     return out
 
 
+def _whole_writes(rng) -> dict:
+    """The attributes a whole replacement carries: each old key given a value or left out."""
+    return {"brand": "Whole", "weight_g": rng.choice([_LEFT_OUT, _LEFT_OUT, _weight_value(rng)]),
+            "origin_country": rng.choice([_LEFT_OUT, _origin_value(rng)]),
+            "country_of_origin": rng.choice([_LEFT_OUT, _LEFT_OUT, _origin_value(rng)])}
+
+
 def _history(rng) -> list[tuple[str, dict]]:
-    """(kind, writes) per event: a create, then edits and CSV upserts, each of which can set or
-    clear any of the fields."""
+    """(kind, writes) per event: a create, then edits, whole-attributes replacements and CSV
+    upserts, each of which can set or clear any of the fields."""
     events = [("item.created", _writes(rng, create=True))]
     for _ in range(rng.randint(1, 8)):
-        kind = rng.choice(["item.updated", "item.updated", "item.updated", "item.patched"])
-        events.append((kind, _writes(rng, create=False) or {"brand": "Other"}))
+        kind = rng.choice(["item.updated", "item.updated", "item.updated", "item.patched", _WHOLE])
+        events.append((kind, _whole_writes(rng) if kind == _WHOLE
+                       else _writes(rng, create=False) or {"brand": "Other"}))
     return events
 
 
 def _event(kind: str, writes: dict) -> dict:
     """The event data each producer records for these writes."""
+    if kind == _WHOLE:
+        return {"fields_changed": {"attributes": {
+            "old": None, "new": {k: v for k, v in writes.items() if v is not _LEFT_OUT}}}}
     if kind == "item.updated":
         return {"fields_changed": {k: {"old": None, "new": v} for k, v in writes.items()}}
     core = {k: v for k, v in writes.items() if k == "weight"}
@@ -91,6 +105,12 @@ def _reference(history) -> tuple:
     left = _ABSENT
     for kind, writes in history:
         given = writes if kind != "item.created" else {k: v for k, v in writes.items() if v not in (None, "")}
+        if kind == _WHOLE:  # leaving out an old key the attributes held clears it
+            given = {k: v for k, v in writes.items() if v is not _LEFT_OUT}
+            if writes["weight_g"] is _LEFT_OUT and left is not _ABSENT:
+                given["weight_g"] = None
+            if writes["country_of_origin"] is _LEFT_OUT and origin is not _ABSENT:
+                given["country_of_origin"] = None
         if "weight" in given:
             if given["weight"] in (None, ""):
                 weight = _ABSENT
@@ -117,7 +137,7 @@ def _reference(history) -> tuple:
 def _replay(history, apply) -> dict:
     state: dict = {}
     for kind, writes in history:
-        state = apply(state, kind, _event(kind, writes))
+        state = apply(state, kind.split(":")[0], _event(kind, writes))
     return state
 
 
@@ -178,6 +198,20 @@ def test_a_core_write_in_the_same_event_wins_and_a_later_old_key_write_still_app
     first = _replay(history[:1], apply_item_event)
     assert (first["weight"], first["weight_unit"], first.get("attributes")) == (2.0, "kilogram", {})
     assert (_replay(history, apply_item_event)["weight"], _replay(history, apply_item_event)["weight_unit"]) == (900.0, "gram")
+
+
+def test_a_whole_attributes_replacement_that_leaves_out_an_old_key_clears_it():
+    from celerp_inventory.projections import apply_item_event
+    kept = _replay([("item.created", {"weight_g": "abc", "origin_country": "Japan"})], apply_item_event)
+    assert kept["attributes"] == {"weight_g": "abc", "country_of_origin": "Japan"}
+    after = apply_item_event({**kept, "weight": 2.0, "weight_unit": "kilogram"}, "item.updated",
+                             _event(_WHOLE, {"brand": "Whole", "weight_g": _LEFT_OUT,
+                                             "origin_country": _LEFT_OUT, "country_of_origin": _LEFT_OUT}))
+    assert after.get("weight") is None and after["attributes"] == {"brand": "Whole"}
+    folded = _replay([("item.created", {"weight_g": 500})], apply_item_event)
+    split = apply_item_event(folded, "item.updated", {"fields_changed": {"attributes": {
+        "old": folded["attributes"], "new": {"pieces": 3}}}})
+    assert (split["weight"], split["weight_unit"], split["attributes"]) == (500.0, "gram", {"pieces": 3})
 
 
 async def _headers(client) -> dict:
