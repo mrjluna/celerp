@@ -94,17 +94,21 @@ async def list_entries(
     limit: int = Query(100, ge=1, le=MAX_PAGE),
     before: int | None = None,
     after: int | None = None,
+    offset: int | None = Query(None, ge=0),
     company_id: str = Depends(get_current_company_id),
     role: str = Depends(get_current_role),
     settings: dict = Depends(get_current_company_settings),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """One page of ledger entries, newest first, read from a stable event-id cursor: the page
-    just older than ``before``, or just newer than ``after``, or the newest. ``total`` counts every
+    just older than ``before``, or just newer than ``after``, or the newest; ``offset`` skips that
+    many of the newest instead, and cannot be combined with a cursor. ``total`` counts every
     entry the filters match, ``newer`` those newer than the page, ``has_older`` whether any is older.
     With ``history`` only the events History shows are read and counted."""
     scope = lambda stmt: _scope(stmt, company_id, settings, role, entity_id, entity_type,  # noqa: E731
                                 event_type, field, who, history)
+    if offset is not None and (before is not None or after is not None):
+        raise HTTPException(status_code=422, detail="offset cannot be combined with before or after")
     q = scope(select(LedgerEntry))
     if after is not None:
         rows = list(reversed((await session.execute(
@@ -112,7 +116,8 @@ async def list_entries(
     else:
         if before is not None:
             q = q.where(LedgerEntry.id < before)
-        rows = (await session.execute(q.order_by(LedgerEntry.id.desc()).limit(limit))).scalars().all()
+        rows = (await session.execute(
+            q.order_by(LedgerEntry.id.desc()).offset(offset or 0).limit(limit))).scalars().all()
     count = lambda *where: scope(select(func.count(LedgerEntry.id)).where(*where))  # noqa: E731
     total = (await session.execute(count())).scalar() or 0
     newer = (await session.execute(count(LedgerEntry.id > rows[0].id))).scalar() if rows else 0

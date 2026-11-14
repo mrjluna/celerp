@@ -586,7 +586,9 @@
     "query:entity_type": "Business entity type used to filter ledger events.",
     "query:event_type": "Event type used to filter ledger events.",
     "query:field": "Field name used to filter ledger events to those that changed it.",
+    "query:history": "Whether to return only the events a record's History shows, leaving out system and automatic housekeeping events.",
     "query:limit": "Maximum number of records to return.",
+    "query:offset": "Number of the newest matching events to skip before returning results. Cannot be combined with before or after.",
     "query:resolve": "Whether to include resolved entity information with ledger events when available.",
     "query:who": "Actor key, as returned by GET /ledger/facets, used to filter ledger events by who made them."
   },

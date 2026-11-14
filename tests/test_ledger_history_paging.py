@@ -127,12 +127,24 @@ async def test_a_page_is_capped(client, session, limit):
 
 
 @pytest.mark.asyncio
-async def test_the_ledger_no_longer_pages_by_offset(client, session):
+async def test_an_offset_reader_gets_each_page_in_turn(client, session):
     owner, _, company_id, _ = await _setup(client, session)
     await _write(session, company_id, 5)
-    a = await _page(client, owner, limit=2, offset=2)
-    b = await _page(client, owner, limit=2)
-    assert [e["id"] for e in a["items"]] == [e["id"] for e in b["items"]]
+    newest_first = [e["id"] for e in (await _page(client, owner, limit=5))["items"]]
+    pages = [[e["id"] for e in (await _page(client, owner, limit=2, offset=o))["items"]] for o in (0, 2, 4)]
+    assert pages == [newest_first[0:2], newest_first[2:4], newest_first[4:5]]
+    second = await _page(client, owner, limit=2, offset=2)
+    assert second["total"] == 5 and second["newer"] == 2 and second["has_older"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cursor", ["before", "after"])
+async def test_an_offset_with_a_cursor_is_refused(client, session, cursor):
+    owner, _, company_id, _ = await _setup(client, session)
+    await _write(session, company_id, 3)
+    r = await client.get("/ledger", params={"entity_id": _ENTITY, "offset": 1, cursor: 2}, headers=owner)
+    assert r.status_code == 422
+    assert (await client.get("/ledger", params={"offset": -1}, headers=owner)).status_code == 422
 
 
 @pytest.mark.asyncio
