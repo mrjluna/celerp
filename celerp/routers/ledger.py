@@ -156,6 +156,8 @@ async def history_facets(
 ) -> dict:
     """What a record's History filters can offer, over its whole history: the event types, the
     fields its events changed, and who made them (``actor_key`` is the Who filter's value)."""
+    if not entity_id.strip():
+        raise HTTPException(status_code=422, detail="entity_id must name a record")
     scope = lambda stmt: _scope(stmt, company_id, settings, role, entity_id, history=True)  # noqa: E731
     event_types = (await session.execute(scope(select(LedgerEntry.event_type).distinct()))).scalars().all()
     changed = LedgerEntry.data["fields_changed"]

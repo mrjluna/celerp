@@ -214,6 +214,8 @@ async def test_facets_follow_the_read_policy_and_need_a_record(client, session):
     facets = (await client.get("/ledger/facets", params={"entity_id": _ENTITY}, headers=viewer)).json()
     assert facets["event_types"] == ["item.updated"] and facets["fields"] == ["name"]
     assert (await client.get("/ledger/facets", headers=owner)).status_code == 422
+    for blank in ("", "   "):
+        assert (await client.get("/ledger/facets", params={"entity_id": blank}, headers=owner)).status_code == 422
 
 
 @pytest.mark.asyncio
