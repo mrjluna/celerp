@@ -59,11 +59,9 @@ _UNOWNED_EVENT_PERMISSION = "manage_company_settings"
 
 def _event_permissions() -> list[tuple[str, str]]:
     """(prefix, permission) for every known event prefix, longest first."""
-    from celerp.modules import slots
     from celerp.modules.loader import event_read_permissions
 
-    found = {**_CORE_EVENT_PERMISSIONS, **event_read_permissions(),
-             **{c["prefix"]: c["permission"] for c in slots.get("projection_handler")}}
+    found = {**_CORE_EVENT_PERMISSIONS, **event_read_permissions()}
     return sorted(found.items(), key=lambda kv: -len(kv[0]))
 
 

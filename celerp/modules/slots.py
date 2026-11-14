@@ -31,9 +31,10 @@ category_schema    Default field definitions for a named category
 projection_handler Maps event-type prefixes to a handler function. Each event type has
                    one handler: no two prefixes may overlap (one equal to or starting
                    with another), within a module, across modules, or with a prefix
-                   core handles itself (KERNEL_PROJECTION_PREFIXES). Its required
+                   core handles itself (KERNEL_PROJECTION_PREFIXES). Its optional
                    "permission" names the one its events are read with: every
-                   ledger reader leaves them out for a role without it
+                   ledger reader leaves them out for a role without it, and
+                   without one they are read by company admins only
 on_company_created Async callback(session, company_id) fired after a new company is persisted
 on_company_restored
                    First-party callback(session, company_id) after backup rows are restored,
@@ -238,8 +239,8 @@ def check(slot: str, contribution: dict) -> None:
     if slot == "projection_handler":
         from celerp.services.permissions import is_permission_key
 
-        if not is_permission_key(contribution.get("permission")):
-            raise ValueError("Slot 'projection_handler' needs the \"permission\" its events are read with.")
+        if "permission" in contribution and not is_permission_key(contribution["permission"]):
+            raise ValueError("Slot 'projection_handler' \"permission\" must be a permission key, or left out.")
     if slot in FIRST_PARTY_SLOTS and contribution.get("_first_party") is not True:
         raise ValueError(f"Slot {slot!r} is filled by Celerp's own modules only.")
 

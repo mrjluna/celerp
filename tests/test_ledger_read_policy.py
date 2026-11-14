@@ -137,14 +137,3 @@ def test_every_projection_handler_names_the_permission_its_events_are_read_with(
     installed = event_read_permissions()
     assert {c["prefix"] for c in registered} <= set(installed)
     assert installed["je."] == "view_financial_reports" and installed["item."] == "view_inventory"
-
-
-@pytest.mark.parametrize("permission", [None, "", "no_such_permission"])
-def test_a_projection_handler_without_a_read_permission_is_refused(permission):
-    from celerp.modules import slots
-
-    entry = {"prefix": "zz.", "handler": "celerp.projections.engine:_merge", "_module": "zz", "_first_party": False}
-    if permission is not None:
-        entry["permission"] = permission
-    with pytest.raises(ValueError):
-        slots.check("projection_handler", entry)

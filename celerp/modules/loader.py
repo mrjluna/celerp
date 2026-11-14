@@ -75,7 +75,7 @@ from celerp.modules.license import (
 )
 from celerp.modules.meta import META_FILENAME
 from celerp.modules.slots import (
-    FIRST_PARTY_SLOTS, KERNEL_PROJECTION_PREFIXES, SLOT_NAMES, check as check_slot,
+    FIRST_PARTY_SLOTS, KERNEL_PROJECTION_PREFIXES, SLOT_NAMES, check as check_slot, get as get_slot,
     projection_prefixes_overlap, register as register_slot, resolve_handler,
     unregister_module as unregister_module_slots,
 )
@@ -1260,20 +1260,32 @@ def _event_prefix_owners() -> dict[str, tuple[str, str]]:
 
 
 def event_read_permissions() -> dict[str, str]:
-    """Each installed module's projection prefix, enabled or not, with the permission its
-    events are read with, so a module that is turned off still keeps its events behind it."""
-    return dict(_installed_event_permissions(module_search_path()))
+    """The permission each module event prefix is read with, enabled or not, so a module
+    that is turned off keeps its events behind it. Only a module that passes admission
+    names one, and only for a prefix no other installed module claims an overlapping
+    prefix of; every other module event falls to the company-admin default."""
+    return dict(_admitted_event_permissions(module_search_path()))
 
 
 @functools.lru_cache(maxsize=4)
-def _installed_event_permissions(search_path: str) -> tuple[tuple[str, str], ...]:
+def _admitted_event_permissions(search_path: str) -> tuple[tuple[str, str], ...]:
     found: dict[str, dict] = {}
     for pkg in _installed_packages():
         manifest = read_manifest(pkg)
         found.setdefault(manifest.get("name") or pkg.name, manifest)
-    return tuple((c["prefix"], c["permission"]) for manifest in found.values()
-                 for c in (manifest.get("slots") or {}).get("projection_handler") or []
-                 if isinstance(c, dict) and isinstance(c.get("prefix"), str) and isinstance(c.get("permission"), str))
+    try:
+        admitted = admit_modules(search_path, set(found)).admitted
+    except ModuleLoadError:
+        log.exception("Module admission failed; module events are read by company admins only")
+        return ()
+    claims = [(m.name, c) for m in admitted for c in m.manifest["slots"].get("projection_handler", [])]
+    claims += [(c["_module"], c) for c in get_slot("projection_handler") if c.get("_module") in CORE_FOLDED]
+    prefixes = [(name, c["prefix"]) for name, manifest in found.items()
+                for c in (manifest.get("slots") or {}).get("projection_handler") or []
+                if isinstance(c, dict) and isinstance(c.get("prefix"), str)]
+    prefixes += [(name, c["prefix"]) for name, c in claims if name in CORE_FOLDED]
+    return tuple((c["prefix"], c["permission"]) for name, c in claims if "permission" in c
+                 and not any(other != name and projection_prefixes_overlap(c["prefix"], p) for other, p in prefixes))
 
 
 def _owner_of(event_type: str, owners: dict[str, tuple[str, str]]) -> tuple[str, str] | None:
@@ -2756,7 +2768,7 @@ _SLOT_ENTRY_KEYS: dict[str, dict[str, tuple[tuple[type, ...], bool]]] = {
     "item_action": _LABEL_KEYS,
     "pricing_action": _LABEL_KEYS,
     "category_schema": {"category": (_TEXT, True), "fields": ((list,), True)},
-    "projection_handler": {"prefix": (_TEXT, True), "permission": (_TEXT, True)},
+    "projection_handler": {"prefix": (_TEXT, True), "permission": (_TEXT, False)},
     "search_provider": {"result_key": (_TEXT, True)},
     "doc_detail_actions": {},
     "doc_detail_badges": {},
