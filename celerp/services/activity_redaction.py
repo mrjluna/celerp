@@ -17,12 +17,12 @@ module owns.
 
 from __future__ import annotations
 
-from sqlalchemy import Select, case, false, true
+from sqlalchemy import ARRAY, ColumnElement, Select, Text, bindparam, case, false, func, text, true
 
 from celerp.events.schemas import ItemPricingSet
 from celerp.services.cost_visibility import COST_DERIVED_ITEM_KEYS, COST_ITEM_KEYS
 from celerp.services.permissions import role_has_permission
-from celerp.services.pricing import is_cost_price_type
+from celerp.services.pricing import COST_PRICE_LIST_NAMES, is_cost_price_type
 
 # Every amount an item.pricing.set carries (all its fields but price_type), so an amount
 # field added to the event later is redacted with the rest.
@@ -79,6 +79,47 @@ def readable_events(stmt: Select, settings: dict | None, role: str | None) -> Se
     rules = [(LedgerEntry.event_type.startswith(prefix, autoescape=True), true() if held(perm) else false())
              for prefix, perm in _event_permissions()]
     return stmt.where(case(*rules, else_=true() if held(_UNOWNED_EVENT_PERMISSION) else false()))
+
+
+# Every key and scalar value of an event's data a role without costs may search by: a walk of
+# the data that never enters a cost key, so nothing at or below one is matched. The key test is
+# is_cost_key in SQL, over the same registry.
+_VISIBLE_DATA_MATCH = """EXISTS (
+  WITH RECURSIVE walk(k, v) AS (
+    SELECT ''::text, CAST({data} AS jsonb)
+    UNION ALL
+    SELECT c.k, c.v FROM walk CROSS JOIN LATERAL (
+      SELECT e.key, e.value FROM jsonb_each(CASE WHEN jsonb_typeof(walk.v) = 'object'
+                                                 THEN walk.v ELSE '{{}}'::jsonb END) AS e
+      WHERE NOT (e.key = ANY(:cost_keys) OR e.key LIKE 'cost\\_%'
+                 OR lower(e.key) = ANY(:cost_lists)
+                 OR (e.key LIKE '%\\_price' AND lower(substr(e.key, 1, length(e.key) - 6)) = ANY(:cost_lists)))
+      UNION ALL
+      SELECT '', a.value FROM jsonb_array_elements(CASE WHEN jsonb_typeof(walk.v) = 'array'
+                                                        THEN walk.v ELSE '[]'::jsonb END) AS a
+    ) AS c(k, v)
+  )
+  SELECT 1 FROM walk
+  WHERE strpos(lower(walk.k), :needle) > 0
+     OR (jsonb_typeof(walk.v) NOT IN ('object', 'array') AND strpos(lower(walk.v #>> '{{}}'), :needle) > 0)
+)"""
+
+
+def event_data_matches(needle: str, settings: dict | None, role: str | None) -> ColumnElement[bool]:
+    """Whether an event's data holds ``needle`` (case-insensitive) where this role can see it.
+    A role that sees costs matches the whole data; any other role matches only keys and values
+    outside every cost key, at any depth. Every text search over event data uses this."""
+    from celerp.models.ledger import LedgerEntry
+
+    ql = needle.lower()
+    if can_see_costs(settings, role):
+        return func.lower(LedgerEntry.data.cast(Text)).contains(ql, autoescape=True)
+    data = f"{LedgerEntry.__tablename__}.{LedgerEntry.data.key}"
+    return text(_VISIBLE_DATA_MATCH.format(data=data)).bindparams(
+        bindparam("cost_keys", sorted(COST_DATA_KEYS), type_=ARRAY(Text)),
+        bindparam("cost_lists", sorted(COST_PRICE_LIST_NAMES), type_=ARRAY(Text)),
+        bindparam("needle", ql, type_=Text),
+    )
 
 
 def can_see_costs(settings: dict | None, role: str | None) -> bool:

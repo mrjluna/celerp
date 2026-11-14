@@ -119,14 +119,14 @@ _COST = ("cost_price", "cost_total", "unit_cost", "total_cogs", "cogs", "cost_ba
          "landed_price", "cost")
 
 
-def _payload(rnd: random.Random, depth: int):
+def _payload(rnd: random.Random, depth: int, cost=_COST, plain=_PLAIN):
     """A random event payload: dicts and lists nested up to ``depth`` levels, cost keys among
     plain ones at every level."""
     if depth == 0 or rnd.random() < 0.2:
         return rnd.choice([rnd.randint(0, 10**6) / 100, "text", None, True])
     if rnd.random() < 0.35:
-        return [_payload(rnd, depth - 1) for _ in range(rnd.randint(0, 3))]
-    return {rnd.choice(_COST if rnd.random() < 0.35 else _PLAIN): _payload(rnd, depth - 1)
+        return [_payload(rnd, depth - 1, cost, plain) for _ in range(rnd.randint(0, 3))]
+    return {rnd.choice(cost if rnd.random() < 0.35 else plain): _payload(rnd, depth - 1, cost, plain)
             for _ in range(rnd.randint(0, 4))}
 
 
@@ -205,3 +205,113 @@ async def test_every_ledger_reader_returns_data_through_the_walk(client, session
         datas = [e["data"] for e in body.get("items") or body.get("activities") or ([body] if "data" in body else [])]
         assert all(d == {} for d in datas) and body.get("fields", []) == [], (name, body)
     assert (await client.get("/ledger", headers=operator)).json()["items"]
+
+
+# Every text search over event data a reader can run. Each must match only what the reader can see.
+_SEARCHES = ("/dashboard/activity/search",)
+_PLAIN_MARK = "plainmark-4270517"
+
+
+def _searchable_events(company_id) -> dict[str, dict]:
+    """One event per placement of a cost amount (top level, a line, a line's attributes, a list
+    inside a dict, five levels down), each also holding the same visible marker."""
+    a = (91827.31, 82736.42, 73645.53, 64554.64, 55463.75, 46372.86)
+    return {
+        "item:search-top": {"cost_price": a[0], "note": _PLAIN_MARK},
+        "doc:search-line": {"line_items": [{"sku": "S", "unit_cost": a[1]}], "note": _PLAIN_MARK},
+        "item:search-attr": {"attributes": {"landed_price": a[2], "pieces": 1}, "note": _PLAIN_MARK},
+        "item:search-list": {"fields_changed": {"landed_costs": [{"amount": a[3]}]}, "note": _PLAIN_MARK},
+        "item:search-deep": {"a": {"b": [{"c": {"d": {"cost_total": a[4]}}}]}, "note": _PLAIN_MARK},
+        "item:search-subtree": {"cost_base": {"parts": [{"amount": a[5]}]}, "note": _PLAIN_MARK},
+    }
+
+
+async def _found(client, headers, q: str) -> set[str]:
+    out: set[str] = set()
+    for path in _SEARCHES:
+        r = await client.get(path, params={"q": q, "per_page": 200}, headers=headers)
+        assert r.status_code == 200, (path, r.text)
+        out |= {a["entity_id"] for a in r.json()["activities"]}
+    return out
+
+
+@pytest.mark.asyncio
+async def test_activity_search_never_matches_a_cost_the_reader_cannot_see(client, session):
+    owner, operator, token = await _setup(client, session)
+    from celerp.models.company import Company
+    from celerp.models.ledger import LedgerEntry
+    company_id = (await session.execute(select(Company.id).where(Company.name == "Perm Co"))).scalar_one()
+    events = _searchable_events(company_id)
+    session.add_all(LedgerEntry(company_id=company_id, entity_id=eid, entity_type=eid.split(":")[0],
+                                event_type=f"{eid.split(':')[0]}.updated", data=data, source="test",
+                                idempotency_key=f"search-{uuid.uuid4()}") for eid, data in events.items())
+    await session.flush()
+    for eid, data in events.items():
+        amount = next(v for _, v in _leaves(data) if isinstance(v, float))
+        assert await _found(client, operator, str(amount)) == set(), eid
+        assert await _found(client, owner, str(amount)) == {eid}, eid
+    assert await _found(client, operator, _PLAIN_MARK) == set(events)
+    assert await _found(client, owner, _PLAIN_MARK) == set(events)
+    # A NUL byte, JSON syntax or SQL text in the search finds none of these for a role without
+    # costs, and never fails for either role.
+    for q in ("\x00", "a\x00b", '"note": ', "{}", "') OR 1=1 --", ":needle", "\\", "x" * 3000):
+        assert await _found(client, operator, q) & set(events) == set(), q
+        await _found(client, owner, q)
+    # The History page searches through the same route.
+    async with ui_signed_in(token) as ui:
+        for eid, data in events.items():
+            amount = next(v for _, v in _leaves(data) if isinstance(v, float))
+            text = (await ui.get("/history", params={"q": str(amount)})).text
+            assert eid not in text, eid
+        assert "item:search-top" in (await ui.get("/history", params={"q": _PLAIN_MARK})).text
+
+
+def _tokenized(value, run: int, counter: list):
+    """``value`` with every scalar leaf replaced by a token unique to this run and leaf."""
+    if isinstance(value, dict):
+        return {k: _tokenized(v, run, counter) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_tokenized(v, run, counter) for v in value]
+    counter[0] += 1
+    n = counter[0]
+    return f"zq{run:03d}t{n:03d}z" if n % 2 else float(f"7{run:03d}{n:03d}.25")
+
+
+# Cost keys in another case or spelled as a list name, and plain keys that only resemble one.
+_CASED = ("Landed_price", "LANDED COST", "Cost Price_price", "cost price", "Cost_price")
+_NEAR = ("costly", "landed_cost_price", "cost-price", "price_cost", "unit_costs")
+
+
+@pytest.mark.asyncio
+async def test_random_nested_costs_never_match_a_search_by_a_role_without_costs(client, session):
+    """Seeded generative check: random nesting over the cost-key registry, every leaf a unique
+    value. A role without costs finds an event by a leaf exactly when the leaf's path passes no
+    cost key; a role with costs finds it by every leaf."""
+    owner, operator, _ = await _setup(client, session)
+    from celerp.models.company import Company
+    from celerp.models.ledger import LedgerEntry
+    company_id = (await session.execute(select(Company.id).where(Company.name == "Perm Co"))).scalar_one()
+    rnd = random.Random(_SEED + 2)
+    sent = {}
+    for n in range(20):
+        counter = [0]
+        keys = (_COST + _CASED, _PLAIN + _NEAR)
+        data = _tokenized({"fields_changed": _payload(rnd, 5, *keys), rnd.choice(sum(keys, ())): _payload(rnd, 4, *keys)},
+                          n, counter)
+        sent[f"item:search-walk-{n}"] = data
+        session.add(LedgerEntry(company_id=company_id, entity_id=f"item:search-walk-{n}", entity_type="item",
+                                event_type="item.updated", data=data, source="test",
+                                idempotency_key=f"search-walk-{uuid.uuid4()}"))
+    await session.flush()
+    checked = hidden = 0
+    for entity, data in sent.items():
+        visible = {json.loads(p)[1] for p in _expected_leaves(data)}
+        for _, leaf in _leaves(data):
+            if leaf is None or isinstance(leaf, bool):
+                continue
+            q = str(leaf)
+            assert await _found(client, owner, q) == {entity}, (entity, q)
+            assert await _found(client, operator, q) == ({entity} if leaf in visible else set()), (entity, q)
+            checked += 1
+            hidden += leaf not in visible
+    assert checked > 50 and hidden > 10, (checked, hidden)

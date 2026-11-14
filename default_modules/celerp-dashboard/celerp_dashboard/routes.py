@@ -166,7 +166,7 @@ async def search_activity(
 ) -> dict:
     from sqlalchemy import func
     import sqlalchemy as _sa
-    from celerp.services.activity_redaction import readable_events
+    from celerp.services.activity_redaction import event_data_matches, readable_events
 
     stmt = readable_events(select(LedgerEntry).where(LedgerEntry.company_id == company_id,
                                                      shown_in_history()), settings, role)
@@ -186,14 +186,17 @@ async def search_activity(
             stmt = stmt.where(LedgerEntry.ts < dt_to)
         except ValueError:
             pass
-    if q:
+    if "\x00" in q:
+        # The database never stores a NUL byte in text, so such a search names nothing.
+        stmt = stmt.where(_sa.false())
+    elif q:
         # autoescape: a % or _ in the search is matched as itself, not as a wildcard.
         ql = q.lower()
         stmt = stmt.where(
             _sa.or_(
                 _sa.func.lower(LedgerEntry.event_type).contains(ql, autoescape=True),
                 _sa.func.lower(LedgerEntry.entity_id).contains(ql, autoescape=True),
-                _sa.func.lower(_sa.cast(LedgerEntry.data, _sa.Text)).contains(ql, autoescape=True),
+                event_data_matches(q, settings, role),
             )
         )
 
