@@ -29414,5 +29414,9 @@
     "tests/test_modules/test_event_read_permissions.py::test_a_projection_handler_with_an_unknown_read_permission_is_refused[]": 0.002703869016841054,
     "tests/test_modules/test_event_read_permissions.py::test_a_projection_handler_with_an_unknown_read_permission_is_refused[no_such_permission]": 0.0026244139298796654,
     "tests/test_modules/test_event_read_permissions.py::test_a_sole_admitted_claimant_names_its_events_permission_even_when_disabled": 5.178447108832188,
-    "tests/test_modules/test_event_read_permissions.py::test_two_modules_claiming_one_prefix_grant_nothing": 6.436404249980114
+    "tests/test_modules/test_event_read_permissions.py::test_two_modules_claiming_one_prefix_grant_nothing": 6.436404249980114,
+    "default_modules/celerp-subscriptions/tests/test_history_and_lists.py::test_history_counts_the_periods_waiting_for_review_and_set_aside": 0.025898547959513962,
+    "tests/test_api_client_items_metadata_batching.py::test_list_ledger_reads_history_events_with_names": 0.002922490006312728,
+    "tests/test_modules/test_event_read_permissions.py::test_a_module_claiming_inside_a_core_prefix_grants_nothing": 3.8776146781165153,
+    "tests/test_modules/test_event_read_permissions.py::test_when_admission_fails_every_module_event_is_closed": 0.01045815902762115
 }
