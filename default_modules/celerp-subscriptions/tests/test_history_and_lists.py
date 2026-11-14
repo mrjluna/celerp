@@ -318,3 +318,13 @@ async def test_history_names_unattended_billing_as_automatic(owner_ui, session, 
     items = items["items"] if isinstance(items, dict) else items
     flags = {bool(e.get("actor_automatic")) for e in items if e["event_type"] != "doc.created"}
     assert flags == {True, False}, items
+
+
+def test_history_counts_the_periods_waiting_for_review_and_set_aside():
+    import ui.routes.subscriptions  # noqa: F401  (registers the agreement's History fields)
+    from ui.components.activity import _FIELD_DESCRIBERS, _field_name
+    for field, label in (("history_review", "subscriptions.history_heading"),
+                         ("history_set_aside", "subscriptions.history_set_aside")):
+        assert _field_name(field) == t(label)
+        assert _FIELD_DESCRIBERS[field]({"old": [{}], "new": [{}, {}, {}]}) == f"{t(label)}: 3"
+        assert _FIELD_DESCRIBERS[field]({"old": [{}], "new": [{}]}) is None

@@ -51,6 +51,27 @@ def test_a_module_refused_admission_grants_nothing(_modules):
     assert _readers("acmec.recorded") == _DEFAULT_READERS
 
 
+def test_a_module_claiming_inside_a_core_prefix_grants_nothing(_modules):
+    from celerp.modules import slots
+    slots.register("projection_handler", {"prefix": "mpz.", "handler": "x.proj:apply",
+                                          "permission": "view_inventory", "_module": "celerp-connectors"})
+    _projecting(_modules, "mpz.order.", "edit_documents")
+    granted = loader.event_read_permissions()
+    assert granted.get("mpz.") is None and "mpz.order." not in granted
+    assert _readers("mpz.order.placed") == _DEFAULT_READERS
+
+
+def test_when_admission_fails_every_module_event_is_closed(_modules, monkeypatch):
+    _projecting(_modules, "acmef.", "edit_documents")
+
+    def failing(*_a, **_k):
+        raise loader.ModuleLoadError("broken")
+
+    monkeypatch.setattr(loader, "admit_modules", failing)
+    assert loader.event_read_permissions() == {}
+    assert _readers("acmef.recorded") == _DEFAULT_READERS
+
+
 def test_a_module_from_before_read_permissions_loads_and_its_events_stay_closed(_modules):
     # The projection_handler entry exactly as manifests wrote it before "permission" existed.
     pkg = _projecting(_modules, "acmed.", permission=None)
