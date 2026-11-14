@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, cast, false, func, or_, select
+from sqlalchemy import Select, and_, cast, false, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, array
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,8 +59,8 @@ def _named(values: list[str]) -> list[str]:
     return [v for v in values if "\x00" not in v]
 
 
-def _scope(stmt, company_id, settings, role, entity_id=None, entity_type=None,
-           event_type=None, field=None, who=None, history=False):
+def _scope(stmt: Select, company_id, settings, role, entity_id=None, entity_type=None,
+           event_type=None, field=None, who=None, history=False) -> Select:
     """``stmt`` narrowed to the company, the events this role can read and the given filters,
     and with ``history`` to the events History shows; a cost field is no filter for a role that
     cannot see costs."""
@@ -105,11 +105,10 @@ async def list_entries(
     many of the newest instead, and cannot be combined with a cursor. ``total`` counts every
     entry the filters match, ``newer`` those newer than the page, ``has_older`` whether any is older.
     With ``history`` only the events History shows are read and counted."""
-    scope = lambda stmt: _scope(stmt, company_id, settings, role, entity_id, entity_type,  # noqa: E731
-                                event_type, field, who, history)
+    filters = (company_id, settings, role, entity_id, entity_type, event_type, field, who, history)
     if offset is not None and (before is not None or after is not None):
         raise HTTPException(status_code=422, detail="offset cannot be combined with before or after")
-    q = scope(select(LedgerEntry))
+    q = _scope(select(LedgerEntry), *filters)
     if after is not None:
         rows = list(reversed((await session.execute(
             q.where(LedgerEntry.id > after).order_by(LedgerEntry.id.asc()).limit(limit))).scalars().all()))
@@ -118,11 +117,11 @@ async def list_entries(
             q = q.where(LedgerEntry.id < before)
         rows = (await session.execute(
             q.order_by(LedgerEntry.id.desc()).offset(offset or 0).limit(limit))).scalars().all()
-    count = lambda *where: scope(select(func.count(LedgerEntry.id)).where(*where))  # noqa: E731
-    total = (await session.execute(count())).scalar() or 0
-    newer = (await session.execute(count(LedgerEntry.id > rows[0].id))).scalar() if rows else 0
+    count = select(func.count(LedgerEntry.id))
+    total = (await session.execute(_scope(count, *filters))).scalar() or 0
+    newer = (await session.execute(_scope(count.where(LedgerEntry.id > rows[0].id), *filters))).scalar() if rows else 0
     has_older = bool(rows) and (await session.execute(
-        scope(select(LedgerEntry.id)).where(LedgerEntry.id < rows[-1].id).limit(1))).first() is not None
+        _scope(select(LedgerEntry.id), *filters).where(LedgerEntry.id < rows[-1].id).limit(1))).first() is not None
 
     shown = await display_fields(rows, company_id, session) if resolve and rows else [{} for _ in rows]
     items = [
@@ -158,15 +157,15 @@ async def history_facets(
     fields its events changed, and who made them (``actor_key`` is the Who filter's value)."""
     if not entity_id.strip():
         raise HTTPException(status_code=422, detail="entity_id must name a record")
-    scope = lambda stmt: _scope(stmt, company_id, settings, role, entity_id, history=True)  # noqa: E731
-    event_types = (await session.execute(scope(select(LedgerEntry.event_type).distinct()))).scalars().all()
+    filters = (company_id, settings, role, entity_id)
+    event_types = (await session.execute(_scope(select(LedgerEntry.event_type).distinct(), *filters, history=True))).scalars().all()
     changed = LedgerEntry.data["fields_changed"]
-    fields = (await session.execute(scope(select(func.json_object_keys(changed)).where(
-        func.json_typeof(changed) == "object")).distinct())).scalars().all()
+    fields = (await session.execute(_scope(select(func.json_object_keys(changed)).where(
+        func.json_typeof(changed) == "object"), *filters, history=True).distinct())).scalars().all()
     fields = fields_for_role(fields, settings, role)
     backup = LedgerEntry.metadata_["backup_actor"]["name"].as_string()
-    makers = (await session.execute(scope(select(
-        LedgerEntry.actor_id, _automatic(), backup)).distinct())).all()
+    makers = (await session.execute(_scope(select(
+        LedgerEntry.actor_id, _automatic(), backup), *filters, history=True).distinct())).all()
     actors = await actor_choices(makers, session)
     return {"event_types": sorted(event_types), "fields": sorted(fields), "actors": actors}
 
