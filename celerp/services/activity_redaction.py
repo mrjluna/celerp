@@ -37,9 +37,8 @@ COST_DATA_KEYS = COST_ITEM_KEYS | COST_DERIVED_ITEM_KEYS | frozenset(
     {"total_cogs", "cogs", "unit_cost", "parent_cost_total", "child_cost_total"})
 
 
-def is_cost_key(key) -> bool:
+def is_cost_key(key: str) -> bool:
     """Whether a key of event data, at any depth, holds a cost."""
-    key = str(key)
     return key in COST_DATA_KEYS or key.startswith("cost_") or is_cost_price_type(key)
 
 # The events no module owns, each read with the permission of the records it changes. The
