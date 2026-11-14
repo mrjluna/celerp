@@ -2074,7 +2074,7 @@ def setup_routes(app):
         name = item.get("name") or item.get("sku") or entity_id
 
         deleted_parents = await deleted_items(token, [item.get("split_from"), item.get("transformed_from")])
-        rows = filter_history(history_rows(page["items"], subject_entity_id=entity_id, currency=currency,
+        rows = filter_history(history_rows(page["items"], currency=currency,
                                            category_names=category_names, deleted=deleted_parents,
                                            docs_on=can_open(company, "celerp-docs")), filters)
         table = history_table([], rows=rows, choices=history_choices(facets), filters=filters,
@@ -7868,7 +7868,7 @@ def _ledger_table(ledger: list[dict], entity_id: str | None = None, currency: st
                   docs_on: bool = False) -> FT:
     from ui.components.activity import history_table
     history_url = f"/inventory/{entity_id}/history" if entity_id else None
-    return history_table(ledger, max_display=10, subject_entity_id=entity_id, currency=currency,
+    return history_table(ledger, max_display=10, currency=currency,
                          category_names=category_names, history_url=history_url, deleted=deleted,
                          docs_on=docs_on, empty_msg=t("activity.empty"))
 

@@ -84,7 +84,9 @@ def test_filters_ask_the_ledger_and_a_field_choice_narrows_the_page_to_that_fiel
         "event_type": ["doc.updated", "doc.patched"], "field": ["due_date"], "who": ["h:A, B"]}
     assert history_query({}) == {}
     rows = history_rows(_LEDGER)
-    assert [r["field"] for r in filter_history(rows, {"hist_field": "due_date"})] == ["Due date"]
+    # The ledger returns only the events that changed the field; the page keeps that field's rows.
+    changed = history_rows([e for e in _LEDGER if "due_date" in ((e.get("data") or {}).get("fields_changed") or {})])
+    assert [r["field"] for r in filter_history(changed, {"hist_field": "due_date"})] == ["Due date"]
     assert filter_history(rows, {"hist_who": "u-Ana"}) == rows  # the ledger chose the events
 
 

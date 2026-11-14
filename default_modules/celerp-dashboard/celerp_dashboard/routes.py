@@ -15,6 +15,7 @@ from celerp.models.projections import Projection
 from celerp.services.lot_origin import RETIRED, held_value
 from celerp.services.business_time import business_today
 from celerp.services.holdings import memo_holdings
+from celerp.services.ledger_display import shown_in_history
 from celerp.services.doc_balance import is_awaiting_payment, is_overdue_document, outstanding_balance
 from celerp.services.auth import get_current_company_id, get_current_user, get_current_role
 from celerp.services.permissions import get_current_company_settings
@@ -145,7 +146,8 @@ async def get_kpis(company_id=Depends(get_current_company_id), role: str = Depen
 async def get_activity(limit: int = Query(default=15, le=100), company_id=Depends(get_current_company_id), role: str = Depends(get_current_role), settings: dict = Depends(get_current_company_settings), session: AsyncSession = Depends(get_session)) -> dict:
     from celerp.services.activity_redaction import readable_events
 
-    stmt = readable_events(select(LedgerEntry).where(LedgerEntry.company_id == company_id), settings, role)
+    stmt = readable_events(select(LedgerEntry).where(LedgerEntry.company_id == company_id,
+                                                     shown_in_history()), settings, role)
     rows = (await session.execute(stmt.order_by(LedgerEntry.id.desc()).limit(limit))).scalars().all()
     return {"activities": await _hydrate_entries(rows, company_id, session, settings, role)}
 
@@ -166,7 +168,8 @@ async def search_activity(
     import sqlalchemy as _sa
     from celerp.services.activity_redaction import readable_events
 
-    stmt = readable_events(select(LedgerEntry).where(LedgerEntry.company_id == company_id), settings, role)
+    stmt = readable_events(select(LedgerEntry).where(LedgerEntry.company_id == company_id,
+                                                     shown_in_history()), settings, role)
 
     if date_from:
         try:

@@ -2143,8 +2143,8 @@ async def get_subscription(token: str, entity_id: str) -> dict:
 
 
 async def list_ledger(token: str, params: dict | None = None) -> dict:
-    p = dict(params or {})
-    p.setdefault("resolve", "true")
+    """A page of the events History shows, by the /ledger filters ``params``."""
+    p = {"resolve": "true", **(params or {}), "history": "true"}
     async with _api_client(token) as c:
         return _raise(await c.get("/ledger", params=p)).json()
 
@@ -2156,7 +2156,8 @@ async def entity_history(token: str, entity_id: str, query: dict, *, limit: int,
     choices over the record's whole history."""
     async with _api_client(token) as c:
         page, facets = await asyncio.gather(
-            c.get("/ledger", params={"entity_id": entity_id, "resolve": "true", "limit": limit, **cursor, **query}),
+            c.get("/ledger", params={"entity_id": entity_id, "resolve": "true", "history": "true", "limit": limit,
+                                     **cursor, **query}),
             c.get("/ledger/facets", params={"entity_id": entity_id}))
     return _raise(page).json(), _raise(facets).json()
 

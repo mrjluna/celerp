@@ -16,7 +16,7 @@ from celerp.projections.engine import ProjectionEngine
 from celerp.services.activity_redaction import (
     can_read_event, event_data_for_role, fields_for_role, readable_events, redact_entries_for_role,
 )
-from celerp.services.ledger_display import actor_choices, display_fields, entry_ts
+from celerp.services.ledger_display import actor_choices, display_fields, entry_ts, shown_in_history
 from celerp.services.auth import get_current_company_id, get_current_role, get_current_user
 from celerp.services.company_lock import lock_company
 from ui.i18n import t
@@ -60,10 +60,13 @@ def _named(values: list[str]) -> list[str]:
 
 
 def _scope(stmt, company_id, settings, role, entity_id=None, entity_type=None,
-           event_type=None, field=None, who=None):
-    """``stmt`` narrowed to the company, the events this role can read and the given filters;
-    a cost field is no filter for a role that cannot see costs."""
+           event_type=None, field=None, who=None, history=False):
+    """``stmt`` narrowed to the company, the events this role can read and the given filters,
+    and with ``history`` to the events History shows; a cost field is no filter for a role that
+    cannot see costs."""
     stmt = readable_events(stmt.where(LedgerEntry.company_id == company_id), settings, role)
+    if history:
+        stmt = stmt.where(shown_in_history(next(iter(_named([entity_id])), None) if entity_id else None))
     if entity_id:
         stmt = stmt.where(LedgerEntry.entity_id.in_(_named([entity_id])))
     if entity_type:
@@ -87,6 +90,7 @@ async def list_entries(
     field: list[str] | None = Query(None),
     who: list[str] | None = Query(None),
     resolve: bool = False,
+    history: bool = False,
     limit: int = Query(100, ge=1, le=MAX_PAGE),
     before: int | None = None,
     after: int | None = None,
@@ -97,9 +101,10 @@ async def list_entries(
 ) -> dict:
     """One page of ledger entries, newest first, read from a stable event-id cursor: the page
     just older than ``before``, or just newer than ``after``, or the newest. ``total`` counts every
-    entry the filters match, ``newer`` those newer than the page, ``has_older`` whether any is older."""
+    entry the filters match, ``newer`` those newer than the page, ``has_older`` whether any is older.
+    With ``history`` only the events History shows are read and counted."""
     scope = lambda stmt: _scope(stmt, company_id, settings, role, entity_id, entity_type,  # noqa: E731
-                                event_type, field, who)
+                                event_type, field, who, history)
     q = scope(select(LedgerEntry))
     if after is not None:
         rows = list(reversed((await session.execute(
@@ -146,7 +151,7 @@ async def history_facets(
 ) -> dict:
     """What a record's History filters can offer, over its whole history: the event types, the
     fields its events changed, and who made them (``actor_key`` is the Who filter's value)."""
-    scope = lambda stmt: _scope(stmt, company_id, settings, role, entity_id)  # noqa: E731
+    scope = lambda stmt: _scope(stmt, company_id, settings, role, entity_id, history=True)  # noqa: E731
     event_types = (await session.execute(scope(select(LedgerEntry.event_type).distinct()))).scalars().all()
     changed = LedgerEntry.data["fields_changed"]
     fields = (await session.execute(scope(select(func.json_object_keys(changed)).where(

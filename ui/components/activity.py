@@ -256,53 +256,6 @@ def _line_item_type(li: dict) -> str:
     return t("activity.non_stock")
 
 
-# Event types that are system-internal and should not appear in user-facing history.
-_SYSTEM_EVENT_TYPES = frozenset({
-    "acc.journal_entry.created",
-    "acc.journal_entry.posted",
-    "acc.journal_entry.voided",
-    "payment_batch.recorded",
-    "line_action.recorded",
-    "sys.migration.applied",
-    "sys.older_stock.placed",
-    "sys.older_stock.corrected",
-    # Fixed assets bookkeeping: the movement each one belongs to is the feed entry.
-    "fa.op.recorded",
-    "fa.op.undone",
-    "fa.src.claimed",
-    "fa.src.released",
-    "fa.run.prepared",
-    "fa.run.posted",
-    "fa.run.reversed",
-    "fa.import.recorded",
-    "fa.import.row",
-    # A reminder's notice being sent; the notice itself is what the member sees.
-    "fa.reminder.told",
-})
-
-# metadata_.reason values that mark an event as a mechanical side-effect of a
-# split/transform/merge operation. These rows are suppressed from the activity feed
-# because the parent operation event (item.split / item.transform / item.merged) already
-# provides a clean summary.
-_OPERATION_NOISE_REASONS = frozenset({
-    "consumed_by_split",
-    "consumed_by_transform",
-    "from_split",
-    "from_transform",
-    "from_merge",
-    # The mother's per-field reductions during a split (qty/cost/weight/pieces). The
-    # item.split summary already shows them as one coherent before -> after entry.
-    "split_parent",
-})
-
-# Origin markers emitted on a split/transform CHILD. They ARE the child's first history
-# entry, so they must render on the child's own page; on the dashboard they de-dup against
-# the mother's summary event and are suppressed there.
-_ORIGIN_EVENT_TYPES = frozenset({
-    "item.split_from",
-    "item.transformed_from",
-})
-
 # scan_runs is the scan bar's idempotency ledger, not something the user edited.
 _SYSTEM_FIELDS = frozenset({"updated_at", "created_at", "customs_saved", SCAN_RUNS_FIELD})
 
@@ -1156,31 +1109,10 @@ def _lifecycle_rows_spec(e: dict, currency: str | None = None,
     return None
 
 
-def _suppressed(e: dict, subject_entity_id: str | None) -> bool:
-    """Whether an entry is left out of activity and history: system events, the mechanical side
-    effects of a split, transform or merge, and an origin row away from the entity's own page."""
-    raw_type = str(e.get("event_type") or "")
-    if raw_type in _SYSTEM_EVENT_TYPES:
-        return True
-    metadata = e.get("metadata_") or e.get("metadata") or {}
-    reason = metadata.get("reason", "") if isinstance(metadata, dict) else ""
-    if raw_type in _ORIGIN_EVENT_TYPES:
-        # The child's own page shows its origin row; the dashboard de-dups against the
-        # mother's summary event (which already names this child).
-        return not (bool(subject_entity_id) and str(e.get("entity_id") or "") == subject_entity_id)
-    # Suppress mechanical side-effect events from split/transform/merge operations.
-    if reason in _OPERATION_NOISE_REASONS:
-        return True
-    # item.created with parent_id = child created by split/transform; shown via the
-    # mother's item.split/item.transform summary (and the child's origin event) instead.
-    return raw_type == "item.created" and isinstance(metadata, dict) and bool(metadata.get("parent_id"))
-
-
-def _entry_specs(e: dict, subject_entity_id: str | None, currency: str | None, category_names: dict | None,
+def _entry_specs(e: dict, currency: str | None, category_names: dict | None,
                  deleted: dict[str, dict] | None, docs_on: bool) -> list[tuple]:
-    """[(event content, detail, row id suffix), ...] for one ledger entry; empty when it is not shown."""
-    if _suppressed(e, subject_entity_id):
-        return []
+    """[(event content, detail, row id suffix), ...] for one ledger entry: at least one, as the
+    ledger read already left out what is not shown (shown_in_history)."""
     raw_type = str(e.get("event_type") or "")
     # Rich lifecycle rendering (split/transform/merge): linked SKUs + qty/pcs/wt deltas.
     spec = _lifecycle_rows_spec(e, currency, category_names, deleted)
@@ -1192,9 +1124,6 @@ def _entry_specs(e: dict, subject_entity_id: str | None, currency: str | None, c
     if _is_file_event(raw_type) and isinstance(data, dict):
         return [(content, _file_event_detail(e, data, raw_type), "")]
     detail = detail_from_entry(data, raw_type, currency, category_names, docs_on=docs_on) if isinstance(data, dict) else ""
-    # Drop rows that carried only noise (empty→empty field changes with no other detail)
-    if not detail and isinstance(data, dict) and data.get("fields_changed"):
-        return []
     return [(content, detail, "")]
 
 
@@ -1208,7 +1137,6 @@ def activity_table(ledger: list[dict], *, title: str | None = None,
                    empty_msg: str | None = None,
                    max_display: int | None = None,
                    history_url: str | None = None,
-                   subject_entity_id: str | None = None,
                    currency: str | None = None,
                    category_names: dict | None = None,
                    resizable: bool = False,
@@ -1218,8 +1146,6 @@ def activity_table(ledger: list[dict], *, title: str | None = None,
 
     Columns: Event (linked to entity) | When (timestamp) | User | Details
 
-    subject_entity_id: when set (an entity's own detail page), that entity's split/transform
-    origin row is shown; when None (dashboard), origin rows de-dup against the mother summary.
     currency: ISO code used to format money amounts in the Details column.
     category_names: ``category_labels`` of the company's category names (see detail_from_entry).
     deleted: deleted items by id; a split or transform parent among them is marked "[Deleted]".
@@ -1254,7 +1180,7 @@ def activity_table(ledger: list[dict], *, title: str | None = None,
 
     def _rows(e: dict) -> list[FT]:
         return [_assemble(e, content, detail, suffix) for content, detail, suffix in
-                _entry_specs(e, subject_entity_id, currency, category_names, deleted, docs_on)]
+                _entry_specs(e, currency, category_names, deleted, docs_on)]
 
     # Filter first, then slice — so max_display counts meaningful rows only
     all_rows: list[FT] = []
@@ -1496,16 +1422,14 @@ def field_changes(data: dict, event_type: str, currency: str | None = None,
     return rows
 
 
-def history_rows(ledger: list[dict], *, subject_entity_id: str | None = None, currency: str | None = None,
+def history_rows(ledger: list[dict], *, currency: str | None = None,
                  category_names: dict | None = None, deleted: dict[str, dict] | None = None,
                  docs_on: bool = False) -> list[dict]:
     """The History's rows: one per field an event changed, or one for an event that changed no
     field (created, finalized, voided ...), whose detail, if any, reads as its new value."""
     out: list[dict] = []
     for e in ledger:
-        specs = _entry_specs(e, subject_entity_id, currency, category_names, deleted, docs_on)
-        if not specs:
-            continue
+        specs = _entry_specs(e, currency, category_names, deleted, docs_on)
         base = {"id": e.get("id"), "when": format_timestamp(str(e.get("ts") or "")) or EMPTY,
                 "who": actor_label(e), "event": event_label(str(e.get("event_type") or ""))}
         data = e.get("data") or {}
@@ -1546,7 +1470,12 @@ def filter_history(rows: list[dict], filters: dict | None) -> list[dict]:
     """A page's rows narrowed to the fields the Field filter names: the ledger already chose
     the events by every filter, and an event may have changed other fields beside it."""
     fields = set(history_query(filters).get("field") or ())
-    return [r for r in rows if r["field_key"] in fields] if fields else rows
+    if not fields:
+        return rows
+    matched = {r["id"] for r in rows if r["field_key"] in fields}
+    # An event whose change to the field reads as nothing keeps its first row, so the page
+    # shows every event the ledger counted.
+    return [r for r in rows if r["field_key"] in fields or (r["first"] and r["id"] not in matched)]
 
 
 _NEVER_SHOWN_FIELDS = _SYSTEM_FIELDS | {"attachments", "preview_image_id"}
@@ -1598,7 +1527,7 @@ def history_table(ledger: list[dict], *, title: str | None = None, section_cls: 
                   filter_url: str | None = None, filter_target: str | None = None,
                   max_display: int | None = None, history_url: str | None = None,
                   footer: FT | str = "", empty_msg: str | None = None, section_id: str | None = None,
-                  subject_entity_id: str | None = None, currency: str | None = None,
+                  currency: str | None = None,
                   category_names: dict | None = None, deleted: dict[str, dict] | None = None,
                   docs_on: bool = False, show_header: bool = True) -> FT:
     """The History card every record shows: Date, Who, Event, Field, Old value, New value.
@@ -1609,7 +1538,7 @@ def history_table(ledger: list[dict], *, title: str | None = None, section_cls: 
     the page reloads)."""
     filters = {k: v for k, v in (filters or {}).items() if k in HISTORY_FILTERS and v}
     shown = rows if rows is not None else history_rows(
-        ledger, subject_entity_id=subject_entity_id, currency=currency,
+        ledger, currency=currency,
         category_names=category_names, deleted=deleted, docs_on=docs_on)
     visible = shown[:max_display] if max_display else shown
     header = section_header(title or t("documents.history"), icon_name="history") if show_header else ""
