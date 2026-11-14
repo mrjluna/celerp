@@ -332,10 +332,12 @@ _ITEM_FIELDS: dict[str, dict] = {f["key"]: f for f in [*DEFAULT_ITEM_SCHEMA, *co
 
 
 def _field_name(key: str) -> str:
-    """Display name for a changed field key; an unknown key (a custom attribute) is
-    title-cased as named."""
+    """Display name for a changed field key; a module's own field reads by the label it
+    registered (register_fields); an unknown key (a custom attribute) is title-cased as named."""
     if key in _FIELD_LABELS:
         return t(_FIELD_LABELS[key])
+    if _MODULE_FIELD_LABELS.get(key):
+        return t(_MODULE_FIELD_LABELS[key])
     field = _ITEM_FIELDS.get(key)
     return field_label(field) if field else key.replace("_", " ").title()
 
@@ -343,11 +345,17 @@ def _field_name(key: str) -> str:
 # ({"old", "new"} or {"old", "drop"}) and returns its line, or None to leave it out.
 # Checked before the generic rendering, so no such field reads as its internal name.
 _FIELD_DESCRIBERS: dict[str, Callable[[dict], str | None]] = {}
+# The label key each such field reads by in History's Field filter, the one its own page
+# uses; None for a field History never shows.
+_MODULE_FIELD_LABELS: dict[str, str | None] = {}
 
 
-def register_fields(describers: dict[str, Callable[[dict], str | None]]) -> None:
-    """Name how History shows each of a module's own fields."""
-    _FIELD_DESCRIBERS.update(describers)
+def register_fields(fields: dict[str, tuple[str, Callable[[dict], str | None]] | None]) -> None:
+    """Name how History shows each of a module's own fields: (label key, describer), or None
+    for a field History never shows."""
+    for key, entry in fields.items():
+        label, describe = entry or (None, lambda c: None)
+        _MODULE_FIELD_LABELS[key], _FIELD_DESCRIBERS[key] = label, describe
 
 
 def change_text(label: str, old: str | None, new: str | None) -> str | None:
@@ -1553,7 +1561,8 @@ def history_choices(facets: dict) -> dict[str, list[tuple[str, str]]]:
             groups.setdefault(label(k), []).append(k)
         return sorted(((",".join(ks), lbl) for lbl, ks in groups.items()), key=lambda c: c[1].lower())
 
-    fields = [k for k in facets.get("fields") or () if k not in _NEVER_SHOWN_FIELDS]
+    fields = [k for k in facets.get("fields") or () if k not in _NEVER_SHOWN_FIELDS
+              and (k not in _MODULE_FIELD_LABELS or _MODULE_FIELD_LABELS[k])]
     who = [(m["actor_key"], actor_label(m)) for m in facets.get("actors") or ()]
     return {
         "hist_event": grouped(facets.get("event_types") or (), event_label),

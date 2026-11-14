@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from urllib.parse import urlencode, urlsplit
 
 from fasthtml.common import *
@@ -230,23 +231,24 @@ def _billing_failure_change(c: dict) -> str | None:
         else t("subscriptions.notice_billing_failed_title")
 
 
-def _count_change(label: str):
-    """The number of entries after the change; nothing when the number does not change."""
+def _counted(label: str) -> tuple[str, Callable[[dict], str | None]]:
+    """A list field read as its number of entries after the change; nothing when the number
+    does not change."""
     def describe(c: dict) -> str | None:
         old, new = len(c.get("old") or []), len(c.get("new") or [])
         return None if old == new else f"{t(label)}: {new}"
-    return describe
+    return label, describe
 
 
 register_fields({
-    **{f: _term_change(f) for f in _FIELD_TEXT},
-    "consents": _consents_change,
-    "periods": _periods_change,
-    "billing_failure": _billing_failure_change,
-    "history_review": _count_change("subscriptions.history_heading"),
-    "history_set_aside": _count_change("subscriptions.history_set_aside"),
-    "resume_restarts": lambda c: None,
-    "released_bills": lambda c: None,
+    **{f: (_FIELD_TEXT[f][0], _term_change(f)) for f in _FIELD_TEXT},
+    "consents": ("subscriptions.billing_heading", _consents_change),
+    "periods": ("subscriptions.periods_heading", _periods_change),
+    "billing_failure": ("subscriptions.notice_billing_failed_title", _billing_failure_change),
+    "history_review": _counted("subscriptions.history_heading"),
+    "history_set_aside": _counted("subscriptions.history_set_aside"),
+    "resume_restarts": None,
+    "released_bills": None,
 })
 # Escape clears an inline preview or result panel (GDR 2j).
 _PANEL_ESC_JS = Script("""
