@@ -29418,5 +29418,7 @@
     "default_modules/celerp-subscriptions/tests/test_history_and_lists.py::test_history_counts_the_periods_waiting_for_review_and_set_aside": 0.025898547959513962,
     "tests/test_api_client_items_metadata_batching.py::test_list_ledger_reads_history_events_with_names": 0.002922490006312728,
     "tests/test_modules/test_event_read_permissions.py::test_a_module_claiming_inside_a_core_prefix_grants_nothing": 3.8776146781165153,
-    "tests/test_modules/test_event_read_permissions.py::test_when_admission_fails_every_module_event_is_closed": 0.01045815902762115
+    "tests/test_modules/test_event_read_permissions.py::test_when_admission_fails_every_module_event_is_closed": 0.01045815902762115,
+    "tests/test_ledger_cost_walk.py::test_activity_search_never_matches_a_cost_the_reader_cannot_see": 5.344757222919725,
+    "tests/test_ledger_cost_walk.py::test_random_nested_costs_never_match_a_search_by_a_role_without_costs": 11.769056836143136
 }
