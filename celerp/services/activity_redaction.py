@@ -20,6 +20,7 @@ from __future__ import annotations
 from sqlalchemy import Select, case, false, true
 
 from celerp.events.schemas import ItemPricingSet
+from celerp.services.cost_visibility import COST_DERIVED_ITEM_KEYS, COST_ITEM_KEYS
 from celerp.services.permissions import role_has_permission
 from celerp.services.pricing import is_cost_price_type
 
@@ -27,11 +28,19 @@ from celerp.services.pricing import is_cost_price_type
 # field added to the event later is redacted with the rest.
 _PRICING_AMOUNT_KEYS = frozenset(ItemPricingSet.model_fields) - {"price_type"}
 
-# Every cost-bearing key that can appear in event data (top-level or in fields_changed):
-# item cost, COGS on fulfillment, manufacturing unit cost. Sell prices (retail_price etc.)
-# are deliberately excluded - they are visible to all roles, matching item-level visibility.
-COST_DATA_KEYS = frozenset({"cost_price", "cost_total", "total_cogs", "cogs", "unit_cost"})
+# The one cost-key registry for event data: item cost and its companions (the keys the item
+# API strips), COGS on fulfillment, manufacturing unit cost and transform cost totals. A key
+# starting with ``cost_`` or naming a cost price list is a cost key too. Sell prices
+# (retail_price etc.) are deliberately excluded - they are visible to all roles, matching
+# item-level visibility.
+COST_DATA_KEYS = COST_ITEM_KEYS | COST_DERIVED_ITEM_KEYS | frozenset(
+    {"total_cogs", "cogs", "unit_cost", "parent_cost_total", "child_cost_total"})
 
+
+def is_cost_key(key) -> bool:
+    """Whether a key of event data, at any depth, holds a cost."""
+    key = str(key)
+    return key in COST_DATA_KEYS or key.startswith("cost_") or is_cost_price_type(key)
 
 # The events no module owns, each read with the permission of the records it changes. The
 # longest prefix an event type starts with decides.
@@ -80,59 +89,47 @@ def can_see_costs(settings: dict | None, role: str | None) -> bool:
     return role_has_permission(settings, role or "", "view_inventory_costs")
 
 
+def _without_costs(value):
+    """``value`` with every cost key dropped from every dict at every depth, through lists."""
+    if isinstance(value, dict):
+        return {k: _without_costs(v) for k, v in value.items() if not is_cost_key(k)}
+    if isinstance(value, list):
+        return [_without_costs(v) for v in value]
+    return value
+
+
 def redact_event_costs(event_type: str, data: dict) -> dict:
-    """Return ``data`` with every cost amount stripped. Pure (returns a copy only when it
-    changes something); rows are kept (counts/pagination stay intact), only cost numbers go.
+    """A copy of ``data`` with every cost amount stripped; rows are kept (counts and pagination
+    stay intact), only cost numbers go. An ``item.pricing.set`` for a cost price type loses every
+    amount and is marked ``cost_redacted``; any other event loses every cost key at every depth
+    of its data (line items, attributes, old and new values alike).
 
-    Covers all cost-bearing event data: ``item.pricing.set`` for a cost price_type (a cost
-    key or a cost price list: every amount, the new value and the one it replaced);
-    top-level cost keys (item cost on item.created/snapshot/patched, ``total_cogs`` on
-    doc fulfillment, manufacturing ``unit_cost``); ``fields_changed`` cost keys; transform
-    parent/child cost totals; and split ``children_detail`` cost deltas. Sell prices
-    (``*_price`` other than ``cost_price``) are deliberately left visible.
-
-    Read-time only — projection replay reads the raw ledger directly, so cost stays intact
-    for state rebuilds; this just keeps cost out of API responses to under-manager roles.
-    """
+    Read-time only: projection replay reads the raw ledger directly, so cost stays intact for
+    state rebuilds; this keeps cost out of what a role without view_inventory_costs reads."""
     if not isinstance(data, dict):
         return data
-
-    # Pricing event for a cost price_type (a cost key or a cost list) → drop every amount
-    # (all fields but price_type), keep the label-only row.
     if event_type == "item.pricing.set" and is_cost_price_type(str(data.get("price_type") or "")):
         out = {k: v for k, v in data.items() if k not in _PRICING_AMOUNT_KEYS}
         out["cost_redacted"] = True
         return out
+    return _without_costs(data)
 
-    fc = data.get("fields_changed")
-    cd = data.get("children_detail")
-    needs = (
-        any(k in data for k in COST_DATA_KEYS)
-        or any(k in data for k in ("parent_cost_total", "child_cost_total"))
-        or (isinstance(fc, dict) and any(k in fc for k in COST_DATA_KEYS))
-        or (isinstance(cd, list) and any(isinstance(c, dict) and any(str(kk).startswith("cost_") for kk in c) for c in cd))
-    )
-    if not needs:
-        return data
 
-    out = {k: v for k, v in data.items()
-           if k not in COST_DATA_KEYS and k not in ("parent_cost_total", "child_cost_total")}
-    if isinstance(fc, dict):
-        out["fields_changed"] = {k: v for k, v in fc.items() if k not in COST_DATA_KEYS}
-    if isinstance(cd, list):
-        out["children_detail"] = [
-            {kk: vv for kk, vv in c.items() if not str(kk).startswith("cost_")}
-            if isinstance(c, dict) else c
-            for c in cd
-        ]
-    return out
+def event_data_for_role(event_type: str, data, settings: dict | None, role: str | None):
+    """An event's data as this role reads it: whole for a role that sees costs, else redacted.
+    Every ledger reader returns event data through this."""
+    return data if can_see_costs(settings, role) else redact_event_costs(event_type, data)
+
+
+def fields_for_role(fields, settings: dict | None, role: str | None) -> list[str]:
+    """Changed-field names as this role may filter or choose by: no cost field for a role that
+    cannot see costs."""
+    return list(fields) if can_see_costs(settings, role) else [f for f in fields if not is_cost_key(f)]
 
 
 def redact_entries_for_role(entries: list[dict], settings: dict | None, role: str | None) -> list[dict]:
-    """Apply :func:`redact_event_costs` to a list of serialized ledger entries unless the
-    role may see costs. Entry dicts must carry ``event_type`` and ``data``."""
-    if can_see_costs(settings, role):
-        return entries
+    """:func:`event_data_for_role` over serialized ledger entries carrying ``event_type`` and
+    ``data``."""
     for e in entries:
-        e["data"] = redact_event_costs(str(e.get("event_type") or ""), e.get("data") or {})
+        e["data"] = event_data_for_role(str(e.get("event_type") or ""), e.get("data") or {}, settings, role)
     return entries

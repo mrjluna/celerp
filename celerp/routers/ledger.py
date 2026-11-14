@@ -14,7 +14,7 @@ from celerp.db import get_lifecycle_session_ctx, get_session
 from celerp.models.ledger import LedgerEntry
 from celerp.projections.engine import ProjectionEngine
 from celerp.services.activity_redaction import (
-    COST_DATA_KEYS, can_read_event, can_see_costs, readable_events, redact_entries_for_role, redact_event_costs,
+    can_read_event, event_data_for_role, fields_for_role, readable_events, redact_entries_for_role,
 )
 from celerp.services.ledger_display import actor_choices, display_fields, entry_ts
 from celerp.services.auth import get_current_company_id, get_current_role, get_current_user
@@ -71,7 +71,7 @@ def _scope(stmt, company_id, settings, role, entity_id=None, entity_type=None,
     if event_type:
         stmt = stmt.where(LedgerEntry.event_type.in_(_named(event_type)))
     if field:
-        visible = _named(field if can_see_costs(settings, role) else [f for f in field if f not in COST_DATA_KEYS])
+        visible = _named(fields_for_role(field, settings, role))
         stmt = stmt.where(_changes_any(visible) if visible else false())
     if who:
         keys = _named(who)
@@ -132,7 +132,6 @@ async def list_entries(
         }
         for r, f in zip(rows, shown)
     ]
-    # Fail-closed cost redaction: never ship cost amounts to under-manager roles.
     return {"items": redact_entries_for_role(items, settings, role), "total": total,
             "newer": newer, "has_older": has_older}
 
@@ -152,8 +151,7 @@ async def history_facets(
     changed = LedgerEntry.data["fields_changed"]
     fields = (await session.execute(scope(select(func.json_object_keys(changed)).where(
         func.json_typeof(changed) == "object")).distinct())).scalars().all()
-    if not can_see_costs(settings, role):
-        fields = [f for f in fields if f not in COST_DATA_KEYS]
+    fields = fields_for_role(fields, settings, role)
     backup = LedgerEntry.metadata_["backup_actor"]["name"].as_string()
     makers = (await session.execute(scope(select(
         LedgerEntry.actor_id, _automatic(), backup)).distinct())).all()
@@ -166,7 +164,7 @@ async def get_entry(entry_id: int, company_id: str = Depends(get_current_company
     entry = await session.get(LedgerEntry, entry_id)
     if entry is None or entry.company_id != company_id or not can_read_event(entry.event_type, settings, role):
         raise HTTPException(status_code=404, detail=t("error.record_not_found"))
-    data = entry.data if can_see_costs(settings, role) else redact_event_costs(entry.event_type, entry.data or {})
+    data = event_data_for_role(entry.event_type, entry.data or {}, settings, role)
     return {
         "id": entry.id,
         "entity_id": entry.entity_id,
