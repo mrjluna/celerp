@@ -129,3 +129,38 @@ async def test_a_role_without_view_documents_sees_neither(client, session, docs_
     assert r.status_code == 200, r.text
     assert "celerp-docs" not in r.json()["results"]
     assert "celerp-docs" in (await client.get("/search", params={"q": tag}, headers=admin)).json()["results"]
+
+
+@pytest.mark.parametrize(("field", "prefix", "doc_type", "number"), [
+    ("source_po_ref", "PO", "bill", "BILL-9001"),
+    ("source_proforma_ref", "PF", "invoice", "INV-9001"),
+])
+async def test_old_reference_finds_current_document(client, session, docs_provider, field, prefix, doc_type, number):
+    token = await register_admin(client)
+    auth = {"Authorization": f"Bearer {token}"}
+    old = f"{prefix}-784321"
+    _seed(session, _company_id(token), "doc", "doc:converted", {
+        "doc_type": doc_type, "status": "final", "ref_id": number, field: old,
+    })
+    await session.flush()
+    for query in (old, old.lower()[:-2]):
+        rows = await _search(client, auth, query)
+        assert [(r["ref_id"], r["doc_type"]) for r in rows] == [(number, doc_type)]
+        listed = await client.get("/docs", params={"q": query, "doc_type": doc_type}, headers=auth)
+        assert listed.status_code == 200, listed.text
+        assert [(r["ref_id"], r["doc_type"]) for r in listed.json()["items"]] == [(number, doc_type)]
+
+
+async def test_old_po_reference_does_not_bypass_document_permissions(client, session, docs_provider):
+    admin = {"Authorization": f"Bearer {await register_admin(client)}"}
+    _seed(session, _company_id(admin["Authorization"].split()[1]), "doc", "doc:private-bill", {
+        "doc_type": "bill", "status": "final", "ref_id": "BILL-4800", "source_po_ref": "PO-4800",
+    })
+    await session.flush()
+    response = await client.patch("/companies/me/role-permissions",
+                                  json={"perm_key": "view_documents", "role_key": "viewer", "granted": False},
+                                  headers=admin)
+    assert response.status_code == 200, response.text
+    viewer = {"Authorization": f"Bearer {await invite_user(client, session, admin, 'qa@ex.test', 'viewer')}"}
+    assert await _search(client, viewer, "PO-4800") == []
+    assert (await client.get("/docs", params={"q": "PO-4800"}, headers=viewer)).status_code == 403

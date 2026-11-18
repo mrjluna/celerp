@@ -2408,8 +2408,8 @@
   "documents.add_new_shipping_address": "+ Aggiungi nuovo indirizzo di spedizione",
   "documents.add_to_selected": "Aggiungi a {target} selezionato",
   "documents.adjust_stock": "Modifica le scorte",
-  "documents.ai_dropzone_text": "Trascina qui un PDF o l’immagine della ricevuta per compilare automaticamente questa fattura",
-  "documents.ai_dropzone_tip": "Compila automaticamente le righe da ricevute o fatture",
+  "documents.ai_dropzone_text": "Trascina qui una ricevuta o una fattura per allegarla",
+  "documents.ai_dropzone_tip": "Allega una ricevuta o una fattura",
   "documents.all_audits": "Tutti gli inventari fisici",
   "documents.allow_split_warn": "Questo articolo non si può vendere in parte, quindi devi vendere l'intera quantità ({qty}). Per consentire vendite parziali, apri l'articolo e imposta Consenti suddivisione su Sì.",
   "documents.another_document": "un altro documento",
@@ -7976,6 +7976,5 @@
   "fund.changed": "Fondo modificato. La registrazione è stata annullata e contabilizzata nuovamente sui nuovi fondi.",
   "collection.status_succeeded": "Addebitato automaticamente. Se il pagamento non compare ancora su questa fattura, cercalo in Pagamenti non abbinati a fattura in Impostazioni, Pagamenti online.",
   "doc.ordered": "Ordered",
-  "doc.remaining": "Remaining",
   "documents.converted_from": "Converted from {ref}"
 }

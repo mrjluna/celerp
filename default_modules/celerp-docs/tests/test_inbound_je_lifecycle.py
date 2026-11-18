@@ -115,3 +115,49 @@ async def test_purchase_order_still_recognises_at_receipt(client):
     assert (await client.post(f"/docs/{po}/receive", headers=_h(t), json={"location_id": loc,
             "received_items": [{"po_line_index": 0, "sku": "PO1", "name": "PO1", "quantity_received": 5}]})).status_code == 200
     assert await _net(client, t) == {"1130-P": 50.0, "2110": -50.0}
+
+
+@pytest.mark.asyncio
+async def test_po_receipt_retry_resend_void_and_bill_keep_one_stock_posting(client):
+    token = await _register(client)
+    auth = _h(token)
+    loc = await _location(client, token)
+    response = await client.post("/docs", headers=auth, json={"doc_type": "purchase_order", "line_items": [
+        {"sku": "PO-QA", "name": "Cable", "quantity": 5, "unit_price": 10, "sell_by": "piece", "tax_rate": 0},
+    ]})
+    assert response.status_code in (200, 201), response.text
+    url = f"/docs/{response.json()['id']}"
+    send = {"sent_via": "manual", "idempotency_key": "qa-po-send"}
+    a = await client.post(url + "/send", headers=auth, json=send)
+    b = await client.post(url + "/send", headers=auth, json=send)
+    assert a.status_code == b.status_code == 200
+    assert a.json()["event_id"] == b.json()["event_id"]
+
+    receipt = {"location_id": loc, "idempotency_key": "qa-po-receive", "received_items": [
+        {"po_line_index": 0, "sku": "PO-QA", "name": "Cable", "quantity_received": 2},
+    ]}
+    a = await client.post(url + "/receive", headers=auth, json=receipt)
+    b = await client.post(url + "/receive", headers=auth, json=receipt)
+    assert a.status_code == b.status_code == 200, (a.text, b.text)
+    order = (await client.get(url, headers=auth)).json()
+    assert order["status"] == "partially_received"
+    assert order["line_items"][0]["quantity_received"] == 2
+    assert len(order["received_item_ids"]) == 1
+    assert await _net(client, token) == {"1130-P": 20.0, "2110": -20.0}
+
+    too_much = {**receipt, "idempotency_key": "qa-po-receive-too-much",
+                "received_items": [{**receipt["received_items"][0], "quantity_received": 4}]}
+    assert (await client.post(url + "/receive", headers=auth, json=too_much)).status_code == 422
+    assert (await client.post(url + "/void", headers=auth, json={"reason": "QA"})).status_code == 409
+    assert await _net(client, token) == {"1130-P": 20.0, "2110": -20.0}
+    assert (await client.post(url + "/send", headers=auth, json={"sent_via": "manual"})).status_code == 200
+    assert (await client.get(url, headers=auth)).json()["status"] == "partially_received"
+
+    rest = {**receipt, "idempotency_key": "qa-po-receive-rest",
+            "received_items": [{**receipt["received_items"][0], "quantity_received": 3}]}
+    assert (await client.post(url + "/receive", headers=auth, json=rest)).status_code == 200
+    assert await _net(client, token) == {"1130-P": 50.0, "2110": -50.0}
+    finalized = await client.post(url + "/finalize", headers=auth)
+    assert finalized.status_code == 200, finalized.text
+    assert (await client.get(url, headers=auth)).json()["doc_type"] == "bill"
+    assert await _net(client, token) == {"1130-P": 50.0, "2110": -50.0}

@@ -2407,8 +2407,8 @@
   "documents.add_new_shipping_address": "+ Adicionar novo endereço de entrega",
   "documents.add_to_selected": "Adicionar ao {target} selecionado",
   "documents.adjust_stock": "Ajustar estoque",
-  "documents.ai_dropzone_text": "Arraste um PDF ou imagem de recibo para cá para preencher automaticamente esta nota fiscal",
-  "documents.ai_dropzone_tip": "Preencher automaticamente itens de linha a partir de recibos ou notas fiscais",
+  "documents.ai_dropzone_text": "Solte um recibo ou uma fatura aqui para anexar o arquivo",
+  "documents.ai_dropzone_tip": "Anexar um recibo ou uma fatura",
   "documents.all_audits": "Todas as contagens de estoque",
   "documents.allow_split_warn": "Este item não pode ser vendido em parte, então você deve vender a quantidade total ({qty}). Para permitir vendas parciais, abra o item e defina Permitir divisão como Sim.",
   "documents.another_document": "outro documento",
@@ -7976,6 +7976,5 @@
   "fund.changed": "Fundo alterado. O lançamento foi anulado e contabilizado novamente nos novos fundos.",
   "collection.status_succeeded": "Cobrado automaticamente. Se o pagamento ainda não aparecer nesta fatura, procure em Pagamentos não vinculados a uma fatura, em Configurações, Pagamentos on-line.",
   "doc.ordered": "Ordered",
-  "doc.remaining": "Remaining",
   "documents.converted_from": "Converted from {ref}"
 }

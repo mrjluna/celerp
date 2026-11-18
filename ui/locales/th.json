@@ -2407,8 +2407,8 @@
   "documents.add_new_shipping_address": "+ เพิ่มที่อยู่จัดส่งใหม่",
   "documents.add_to_selected": "เพิ่มลงใน {target} ที่เลือก",
   "documents.adjust_stock": "ปรับปรุงสต็อก",
-  "documents.ai_dropzone_text": "วางไฟล์ PDF หรือรูปใบเสร็จที่นี่เพื่อกรอกข้อมูลบิลนี้อัตโนมัติ",
-  "documents.ai_dropzone_tip": "กรอกรายการสินค้าอัตโนมัติจากใบเสร็จหรือใบแจ้งหนี้",
+  "documents.ai_dropzone_text": "วางใบเสร็จหรือใบแจ้งหนี้ที่นี่เพื่อแนบไฟล์",
+  "documents.ai_dropzone_tip": "แนบใบเสร็จหรือใบแจ้งหนี้",
   "documents.all_audits": "การตรวจนับสต็อกทั้งหมด",
   "documents.allow_split_warn": "สินค้านี้ขายแยกบางส่วนไม่ได้ ต้องขายเต็มจำนวน ({qty}) หากต้องการขายบางส่วน ให้เปิดสินค้าแล้วตั้ง อนุญาตให้แยกได้ เป็น ใช่",
   "documents.another_document": "เอกสารอื่น",
@@ -7976,6 +7976,5 @@
   "fund.changed": "เปลี่ยนกองทุนแล้ว ระบบทำรายการเดิมเป็นโมฆะและบันทึกบัญชีใหม่ตามกองทุนใหม่",
   "collection.status_succeeded": "เรียกเก็บเงินอัตโนมัติสำเร็จ หากยังไม่พบการชำระในใบแจ้งหนี้นี้ ให้ดูในส่วนการชำระเงินที่ยังจับคู่กับใบแจ้งหนี้ไม่ได้ ภายใต้ การตั้งค่า > การชำระเงินออนไลน์",
   "doc.ordered": "Ordered",
-  "doc.remaining": "Remaining",
   "documents.converted_from": "Converted from {ref}"
 }

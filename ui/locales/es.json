@@ -2407,8 +2407,8 @@
   "documents.add_new_shipping_address": "+ Añadir nueva dirección de envío",
   "documents.add_to_selected": "Añadir a {target} seleccionado",
   "documents.adjust_stock": "Ajustar stock",
-  "documents.ai_dropzone_text": "Arrastre aquí un PDF o una imagen del recibo para rellenar automáticamente esta factura",
-  "documents.ai_dropzone_tip": "Rellenar automáticamente las partidas a partir de recibos o facturas",
+  "documents.ai_dropzone_text": "Suelta aquí un recibo o una factura para adjuntarlo",
+  "documents.ai_dropzone_tip": "Adjuntar un recibo o una factura",
   "documents.all_audits": "Todos los recuentos de inventario",
   "documents.allow_split_warn": "Este artículo no se puede vender en parte, así que debe vender la cantidad completa ({qty}). Para permitir ventas parciales, abra el artículo y ponga Permitir división en Sí.",
   "documents.another_document": "Otro documento",
@@ -7976,6 +7976,5 @@
   "fund.changed": "Fondo cambiado. El asiento se anuló y se contabilizó de nuevo en los nuevos fondos.",
   "collection.status_succeeded": "Cobrado automáticamente. Si el pago aún no figura en esta factura, búsquelo en Pagos no asociados a una factura, en Configuración, Pagos en línea.",
   "doc.ordered": "Ordered",
-  "doc.remaining": "Remaining",
   "documents.converted_from": "Converted from {ref}"
 }
