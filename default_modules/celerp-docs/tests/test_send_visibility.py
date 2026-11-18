@@ -25,7 +25,7 @@ from celerp_docs.doc_constants import NO_SEND_DOC_TYPES, NO_SEND_STATUSES
 
 def test_no_send_doc_types_contains_expected():
     assert "bill" in NO_SEND_DOC_TYPES
-    assert "purchase_order" in NO_SEND_DOC_TYPES
+    assert "purchase_order" not in NO_SEND_DOC_TYPES
     assert "consignment_in" in NO_SEND_DOC_TYPES
 
 
@@ -58,7 +58,7 @@ def _render_doc(doc_type: str, status: str, share_enabled: bool = False) -> str:
     return to_xml(result)
 
 
-@pytest.mark.parametrize("doc_type", ["bill", "purchase_order", "consignment_in"])
+@pytest.mark.parametrize("doc_type", ["bill", "consignment_in", "production_order"])
 @pytest.mark.parametrize("status", ["draft", "sent", "final", "awaiting_payment", "paid"])
 def test_no_send_for_internal_doc_types(doc_type, status):
     html = _render_doc(doc_type, status, share_enabled=True)
@@ -92,6 +92,12 @@ def test_send_modal_hidden_when_relay_not_connected():
 def test_mark_as_sent_visible_on_draft_sendable_type():
     # relay not required for mark_as_sent
     html = _render_doc("invoice", "draft", share_enabled=False)
+    assert 'action/mark_sent' in html
+
+
+def test_purchase_order_send_actions_visible_on_draft():
+    html = _render_doc("purchase_order", "draft", share_enabled=True)
+    assert "send-modal-" in html
     assert 'action/mark_sent' in html
 
 

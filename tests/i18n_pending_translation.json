@@ -12,5 +12,20 @@
     "th",
     "vi"
   ],
-  "keys": {}
+  "keys": {
+    "doc.ordered": {
+      "en": "Ordered",
+      "params": []
+    },
+    "doc.remaining": {
+      "en": "Remaining",
+      "params": []
+    },
+    "documents.converted_from": {
+      "en": "Converted from {ref}",
+      "params": [
+        "ref"
+      ]
+    }
+  }
 }

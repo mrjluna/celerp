@@ -7974,5 +7974,8 @@
   "fund.change": "Ubah dana",
   "fund.change_journal_hint": "Jurnal ini sudah dibukukan. Menyimpan akan membatalkannya dan membukukan ulang pada dana yang dipilih di bawah.",
   "fund.changed": "Dana diubah. Jurnal dibatalkan dan dibukukan ulang pada dana baru.",
-  "collection.status_succeeded": "Ditagih otomatis. Jika pembayaran belum muncul pada faktur ini, cari di Pembayaran yang belum dicocokkan dengan faktur pada Pengaturan, Pembayaran Online."
+  "collection.status_succeeded": "Ditagih otomatis. Jika pembayaran belum muncul pada faktur ini, cari di Pembayaran yang belum dicocokkan dengan faktur pada Pengaturan, Pembayaran Online.",
+  "doc.ordered": "Ordered",
+  "doc.remaining": "Remaining",
+  "documents.converted_from": "Converted from {ref}"
 }

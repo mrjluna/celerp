@@ -7974,5 +7974,8 @@
   "fund.change": "Alterar fundo",
   "fund.change_journal_hint": "Este lançamento já foi contabilizado. Salvar o anula e o contabiliza novamente nos fundos escolhidos abaixo.",
   "fund.changed": "Fundo alterado. O lançamento foi anulado e contabilizado novamente nos novos fundos.",
-  "collection.status_succeeded": "Cobrado automaticamente. Se o pagamento ainda não aparecer nesta fatura, procure em Pagamentos não vinculados a uma fatura, em Configurações, Pagamentos on-line."
+  "collection.status_succeeded": "Cobrado automaticamente. Se o pagamento ainda não aparecer nesta fatura, procure em Pagamentos não vinculados a uma fatura, em Configurações, Pagamentos on-line.",
+  "doc.ordered": "Ordered",
+  "doc.remaining": "Remaining",
+  "documents.converted_from": "Converted from {ref}"
 }

@@ -7974,5 +7974,8 @@
   "fund.change": "基金を変更",
   "fund.change_journal_hint": "この仕訳は計上済みです。保存すると無効化され、以下で選択した基金に再計上されます。",
   "fund.changed": "基金を変更しました。仕訳を無効化し、新しい基金に再計上しました。",
-  "collection.status_succeeded": "自動請求が完了しました。この請求書にまだ支払が表示されない場合は、「設定 > オンライン決済」の「請求書に未照合の支払」を確認してください。"
+  "collection.status_succeeded": "自動請求が完了しました。この請求書にまだ支払が表示されない場合は、「設定 > オンライン決済」の「請求書に未照合の支払」を確認してください。",
+  "doc.ordered": "Ordered",
+  "doc.remaining": "Remaining",
+  "documents.converted_from": "Converted from {ref}"
 }

@@ -7974,5 +7974,8 @@
   "fund.change": "Fonds ändern",
   "fund.change_journal_hint": "Diese Buchung ist bereits erfolgt. Beim Speichern wird sie storniert und auf den unten gewählten Fonds erneut gebucht.",
   "fund.changed": "Fonds geändert. Die Buchung wurde storniert und auf den neuen Fonds erneut gebucht.",
-  "collection.status_succeeded": "Automatisch belastet. Falls die Zahlung noch nicht auf dieser Rechnung erscheint, suchen Sie unter Einstellungen, Online-Zahlungen, Zahlungen ohne Rechnungszuordnung."
+  "collection.status_succeeded": "Automatisch belastet. Falls die Zahlung noch nicht auf dieser Rechnung erscheint, suchen Sie unter Einstellungen, Online-Zahlungen, Zahlungen ohne Rechnungszuordnung.",
+  "doc.ordered": "Ordered",
+  "doc.remaining": "Remaining",
+  "documents.converted_from": "Converted from {ref}"
 }

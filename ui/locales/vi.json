@@ -7974,5 +7974,8 @@
   "fund.change": "Đổi quỹ",
   "fund.change_journal_hint": "Bút toán này đã ghi sổ. Khi lưu, hệ thống hủy bút toán đó và ghi sổ lại vào các quỹ được chọn bên dưới.",
   "fund.changed": "Đã đổi quỹ. Bút toán đã bị hủy và được ghi sổ lại vào các quỹ mới.",
-  "collection.status_succeeded": "Đã thu tiền tự động. Nếu khoản thanh toán chưa xuất hiện trên hóa đơn, hãy tìm ở Thanh toán chưa khớp với hóa đơn trong Cài đặt, Thanh toán trực tuyến."
+  "collection.status_succeeded": "Đã thu tiền tự động. Nếu khoản thanh toán chưa xuất hiện trên hóa đơn, hãy tìm ở Thanh toán chưa khớp với hóa đơn trong Cài đặt, Thanh toán trực tuyến.",
+  "doc.ordered": "Ordered",
+  "doc.remaining": "Remaining",
+  "documents.converted_from": "Converted from {ref}"
 }

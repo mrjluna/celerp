@@ -1519,7 +1519,8 @@ async def deliver(factory, company_id, template_id: str, k: int, *, retry_by=Non
                        if contact_id else None)
             to = ((contact.state or {}).get("email") if contact is not None else None) or ""
             if (doc is None or (doc.state or {}).get("status") == "void" or
-                    (doc.state or {}).get("doc_type") in NO_SEND_DOC_TYPES or not to):
+                    ((doc.state or {}).get("doc_type") in NO_SEND_DOC_TYPES
+                     or (doc.state or {}).get("doc_type") == "purchase_order") or not to):
                 send = record_send(periods, k, retry_by, state="failed", n=n,
                                    error_key="subscriptions.err_send_no_email" if doc is not None and not to
                                    else "subscriptions.err_send_void")
