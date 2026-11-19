@@ -639,3 +639,18 @@ async def test_mark_as_read_on_a_page_of_1001_rows_posts_one_field_and_marks_eve
     r = await owner_ui.post("/subscriptions/summary/ack", data=_hx_vals(page, "/subscriptions/summary/ack"))
     assert r.status_code == 204 and posted == [[row["key"] for row in rows]], (r.status_code, r.text[:200])
     assert t("subscriptions.summary_window", days=SUMMARY_WINDOW.days) in page
+
+
+@pytest.mark.parametrize("doc_type", ["subscription_invoice", "subscription_po"])
+async def test_a_subscription_template_page_loads_no_gl_impact_but_its_invoice_does(owner_ui, doc_type, monkeypatch):
+    from agreement_kit import agreement, freeze_day, generate_due
+    freeze_day(monkeypatch, "2026-03-15")
+    eid = await agreement(owner_ui.api, {}, start="2026-03-01", doc_type=doc_type)
+    html = (await owner_ui.get(f"/docs/{eid}")).text
+    assert "/gl-impact" not in html and t("documents.gl_impact", "en") not in html
+    assert (await generate_due(owner_ui.api, {}, eid)).status_code == 200
+    billed = [d for d in (await owner_ui.api.get("/docs", params={"limit": 50})).json()["items"]
+              if d.get("source_agreement") == eid]
+    assert billed, "the agreement billed nothing"
+    page = (await owner_ui.get(f"/docs/{billed[0]['id']}")).text
+    assert f"/docs/{billed[0]['id']}/gl-impact" in page

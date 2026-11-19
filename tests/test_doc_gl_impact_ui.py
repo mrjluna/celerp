@@ -45,6 +45,22 @@ def test_a_list_page_loads_gl_impact_for_a_role_with_accounting_access():
     assert _PLACEHOLDER not in _page(doc_type="list", role="viewer")
 
 
+@pytest.mark.parametrize("doc_type", ["subscription_invoice", "subscription_po"])
+@pytest.mark.parametrize("status", ["draft", "active", "paused", "cancelled"])
+def test_a_subscription_template_page_has_no_gl_impact_card(doc_type, status):
+    # A template never posts: what is owed is on the documents it issues.
+    doc = {"entity_id": f"doc:{doc_type}-1", "doc_type": doc_type, "status": status, "ref_id": "S-1", "line_items": []}
+    html = to_xml(_doc_detail(doc, role="owner"))
+    assert _PLACEHOLDER not in html
+    assert t("documents.gl_impact") not in html
+
+
+def test_an_invoice_issued_by_a_subscription_still_loads_gl_impact():
+    doc = {"entity_id": "doc:inv-9", "doc_type": "invoice", "status": "final", "ref_id": "INV-9", "line_items": [],
+           "source_agreement": "doc:SUBI-1", "period_index": 0}
+    assert "/docs/doc:inv-9/gl-impact" in to_xml(_doc_detail(doc, role="owner"))
+
+
 _POSTED = {
     "doc_id": "doc:inv-1", "doc_type": "invoice", "status": "final", "currency": "USD",
     "entries": [
