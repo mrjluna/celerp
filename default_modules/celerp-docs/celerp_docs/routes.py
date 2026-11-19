@@ -233,8 +233,9 @@ def _canonical_contact_payload(data):
 
 # The dates the index windows and sorts a record by and the overdue rules read, all compared as
 # text, so each must be a calendar day: YYYY-MM-DD, or an ISO timestamp whose first ten characters
-# are its day. Every request model that can write a state field checks them here.
-_DOC_DATE_FIELDS = ("issue_date", "due_date")
+# are its day. Every request model that can write a state field checks them here. A subscription
+# template's start and end dates and the next bill date it was once given are dates just the same.
+_DOC_DATE_FIELDS = ("issue_date", "due_date", "start_date", "end_date", "next_bill_date")
 
 
 def _require_iso_dates(values, new=lambda v: v):
