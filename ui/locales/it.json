@@ -7974,5 +7974,6 @@
   "fund.change": "Cambia fondo",
   "fund.change_journal_hint": "Questa registrazione è già contabilizzata. Salvando, verrà annullata e contabilizzata nuovamente sui fondi selezionati sotto.",
   "fund.changed": "Fondo modificato. La registrazione è stata annullata e contabilizzata nuovamente sui nuovi fondi.",
-  "collection.status_succeeded": "Addebitato automaticamente. Se il pagamento non compare ancora su questa fattura, cercalo in Pagamenti non abbinati a fattura in Impostazioni, Pagamenti online."
+  "collection.status_succeeded": "Addebitato automaticamente. Se il pagamento non compare ancora su questa fattura, cercalo in Pagamenti non abbinati a fattura in Impostazioni, Pagamenti online.",
+  "documents.unnumbered": "Senza numero"
 }

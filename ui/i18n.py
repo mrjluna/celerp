@@ -345,6 +345,17 @@ def doc_type_label(dt: str) -> str:
     return t(key) if key else dt.replace("_", " ").title()
 
 
+def doc_ref_label(doc: dict | None) -> str:
+    """What a document is called to a reader: its number, or, while it has none, its type and
+    whether it is a draft ("Invoice (Draft)"); never its internal id."""
+    doc = doc or {}
+    if number := doc.get("doc_number") or doc.get("ref_id"):
+        return str(number)
+    kind = doc_type_label(doc["doc_type"]) if doc.get("doc_type") else t("contacts.doc_ref_fallback")
+    state = t("status.draft") if (doc.get("status") or "draft") == "draft" else t("documents.unnumbered")
+    return f"{kind} ({state})"
+
+
 # Why a run needs reconciling, as the server records it, in the user's language.
 _RECONCILE_REASONS = {
     "books disagree": "manufacturing.reconcile_reason_books_disagree",
