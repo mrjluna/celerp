@@ -31,6 +31,7 @@ from celerp.connectors.base import (
 from celerp.connectors.ownership import PRODUCT_CHANNEL_PLATFORMS
 from celerp.connectors.sync_runner import CONNECTOR_RESET_ENTITY
 from ui.components.encode import call, html_response, safe_url
+from ui.components.icons import icon
 from ui.components.funds import DefaultsView, connection_default, connection_defaults_card, connection_defaults_of
 
 log = logging.getLogger(__name__)
@@ -59,13 +60,24 @@ def _store_url_error(store_url: str, platform: str) -> str | None:
 # Where a client sends its accountant to learn how Celerp works for firms.
 ACCOUNTANTS_URL = "https://celerp.com/accountants"
 
+# Each connector's icon name (ui.components.icons); one not listed draws _DEFAULT_CONNECTOR_ICON.
 _CONNECTOR_ICONS: dict[str, str] = {
-    "shopify": "🛍️",
-    "woocommerce": "🛒",
-    "quickbooks": "📊",
-    "xero": "📗",
-    "celerp": "📚",
+    "shopify": "package",
+    "woocommerce": "shopping-cart",
+    "quickbooks": "chart-column",
+    "xero": "file-text",
+    "celerp": "book-open",
 }
+_DEFAULT_CONNECTOR_ICON = "puzzle"
+
+
+def _connector_icon(platform: str) -> FT:
+    return icon(_CONNECTOR_ICONS.get(platform, _DEFAULT_CONNECTOR_ICON))
+
+
+def _connector_title(platform: str, name: str) -> FT:
+    """The connector page's title: its icon, then its name."""
+    return Span(Span(_connector_icon(platform), cls="connector-title-icon"), " ", name)
 
 _DEFAULT_FREQUENCY: dict[str, SyncFrequency] = {
     ConnectorCategory.WEBSITE.value: SyncFrequency.REALTIME,
@@ -888,7 +900,6 @@ def _connector_card(
         config is not None and not connected and not ambiguous
         and c.get("auth_type") == "oauth"
     )
-    icon = _CONNECTOR_ICONS.get(cid, "🔌")
     category = c.get("category", "website")
     name = c.get("name", cid)
     description = c.get("description", "")
@@ -1096,7 +1107,7 @@ def _connector_card(
     return Div(
         # Header row: icon + name + status
         Div(
-            Span(icon, cls="connector-icon"),
+            Span(_connector_icon(cid), cls="connector-icon"),
             Div(
                 Div(
                     Strong(name, cls="connector-name"),
@@ -2144,7 +2155,6 @@ def setup_routes(app):
         config = await _get_connector_config(company_id, platform)
         runs = await _entity_runs(company_id, platform)
         deposit = await _deposit_context(token) if platform == "woocommerce" else None
-        icon = _CONNECTOR_ICONS.get(platform, "🔌")
         name = c.get("name", platform.title())
         # Never connected here: the card says so and offers Connect; the detail body's
         # Sync now, Disconnect and directions would only refuse.
@@ -2154,7 +2164,7 @@ def setup_routes(app):
         return await base_shell(
             breadcrumbs([(t("settings_cloud.web_access", lang), f"/settings/cloud?tab={c.get('category', 'website')}"), (name, None)]),
             page_header(
-                f"{icon} {name}",
+                _connector_title(platform, name),
                 A(t("connectors.back_to_connectors", lang), href=f"/settings/cloud?tab={c.get('category', 'website')}",
                   cls="btn btn--secondary btn--sm"),
             ),
