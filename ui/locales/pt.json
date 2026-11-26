@@ -8011,6 +8011,7 @@
   "fund.change_journal_hint": "Este lançamento já foi contabilizado. Salvar o anula e o contabiliza novamente nos fundos escolhidos abaixo.",
   "fund.changed": "Fundo alterado. O lançamento foi anulado e contabilizado novamente nos novos fundos.",
   "collection.status_succeeded": "Cobrado automaticamente. Se o pagamento ainda não aparecer nesta fatura, procure em Pagamentos não vinculados a uma fatura, em Configurações, Pagamentos on-line.",
+  "documents.unnumbered": "Sem número",
   "doc.ordered": "Ordered",
   "documents.converted_from": "Converted from {ref}",
   "ai.warn_outside_message": "Esta mensagem vai para alguém fora da empresa e não pode ser cancelada.",

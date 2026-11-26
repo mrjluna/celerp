@@ -8011,6 +8011,7 @@
   "fund.change_journal_hint": "Jurnal ini sudah dibukukan. Menyimpan akan membatalkannya dan membukukan ulang pada dana yang dipilih di bawah.",
   "fund.changed": "Dana diubah. Jurnal dibatalkan dan dibukukan ulang pada dana baru.",
   "collection.status_succeeded": "Ditagih otomatis. Jika pembayaran belum muncul pada faktur ini, cari di Pembayaran yang belum dicocokkan dengan faktur pada Pengaturan, Pembayaran Online.",
+  "documents.unnumbered": "Tanpa nomor",
   "doc.ordered": "Ordered",
   "documents.converted_from": "Converted from {ref}",
   "ai.warn_outside_message": "Pesan ini dikirim ke seseorang di luar perusahaan dan tidak dapat ditarik kembali.",

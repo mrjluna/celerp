@@ -8011,6 +8011,7 @@
   "fund.change_journal_hint": "Diese Buchung ist bereits erfolgt. Beim Speichern wird sie storniert und auf den unten gewählten Fonds erneut gebucht.",
   "fund.changed": "Fonds geändert. Die Buchung wurde storniert und auf den neuen Fonds erneut gebucht.",
   "collection.status_succeeded": "Automatisch belastet. Falls die Zahlung noch nicht auf dieser Rechnung erscheint, suchen Sie unter Einstellungen, Online-Zahlungen, Zahlungen ohne Rechnungszuordnung.",
+  "documents.unnumbered": "Ohne Nummer",
   "doc.ordered": "Ordered",
   "documents.converted_from": "Converted from {ref}",
   "ai.warn_outside_message": "Diese Nachricht geht an jemanden außerhalb des Unternehmens und kann nicht zurückgerufen werden.",

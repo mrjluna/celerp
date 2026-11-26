@@ -47,7 +47,7 @@ from celerp_docs.periodic import OperationReport
 from celerp_subscriptions.periods import (AUTO_MODES, BILLED, COLLECT_MODE, CLAIMED_STATES, RELEASED, SCHEDULE_FIELDS, SKIPPED,
                                           UNRESOLVED, TERMS, Schedule, ScheduleError, check_terms, shown, term_error)
 from celerp_subscriptions.search import SUBSCRIPTION_DOC_TYPES
-from ui.i18n import t
+from ui.i18n import doc_ref_label, t
 
 log = logging.getLogger(__name__)
 
@@ -498,7 +498,7 @@ async def doc_state(session, company_id, doc_id: str) -> dict | None:
 
 
 async def doc_ref(session, company_id, doc_id: str) -> str:
-    return ((await doc_state(session, company_id, doc_id)) or {}).get("ref_id") or doc_id
+    return doc_ref_label(await doc_state(session, company_id, doc_id)) if doc_id else doc_id
 
 
 # The one rule for "is this period billed": its claimed document bills it only while the

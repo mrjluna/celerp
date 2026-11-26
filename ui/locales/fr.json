@@ -8011,6 +8011,7 @@
   "fund.change_journal_hint": "Cette écriture a déjà été comptabilisée. L'enregistrement l'annulera et la comptabilisera de nouveau sur les fonds choisis ci-dessous.",
   "fund.changed": "Fonds modifié. L'écriture a été annulée et comptabilisée à nouveau sur les nouveaux fonds.",
   "collection.status_succeeded": "Prélevé automatiquement. Si le paiement ne figure pas encore sur cette facture, recherchez-le dans Paiements non rapprochés d'une facture, sous Paramètres, Paiements en ligne.",
+  "documents.unnumbered": "Sans numéro",
   "doc.ordered": "Ordered",
   "documents.converted_from": "Converted from {ref}",
   "ai.warn_outside_message": "Ce message est envoyé à une personne extérieure à l'entreprise et ne peut pas être rappelé.",

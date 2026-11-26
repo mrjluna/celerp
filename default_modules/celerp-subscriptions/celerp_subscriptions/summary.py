@@ -25,7 +25,7 @@ from celerp.models.projections import Projection
 from celerp.services.business_time import company_today
 from celerp.services.company_lock import locked_company
 from celerp_subscriptions import billing
-from ui.i18n import refusal_text, t
+from ui.i18n import doc_ref_label, refusal_text, t
 
 ACK_SETTING = "subscription_summary_ack"
 # How far back the summary reads: a row whose time is older leaves it, and its key leaves
@@ -105,7 +105,7 @@ async def send_answer(session: AsyncSession, company_id, entity_id: str, k: int)
     status, _since = billing.send_status(state, k, await company_today(session, company_id), doc)
     kind = _send_kind(status, send)
     return {"ok": True, "period_index": k, "send": status,
-            "message": _message(kind, (doc or {}).get("ref_id") or doc_id, send.get("error_key")) if kind else None}
+            "message": _message(kind, doc_ref_label(doc) if doc_id else None, send.get("error_key")) if kind else None}
 
 
 async def _member_name(session, user_id) -> str:
@@ -182,7 +182,7 @@ async def _rows(session: AsyncSession, company_id, settings: dict) -> list[dict]
         lasts = r.pop("lasts", False)
         if not lasts and (at := billing.stamp_time(r["at"])) is not None and at < since:
             continue
-        ref = (named.get(r["doc_id"]) or {}).get("ref_id") or r["doc_id"]
+        ref = doc_ref_label(named.get(r["doc_id"])) if r["doc_id"] else None
         reason = refusal_text(r.pop("reason", None))
         message = (t("subscriptions.summary_generation_failed_because", ref=ref, error=reason) if reason
                    else _message(r["kind"], ref, r.get("error_key")))

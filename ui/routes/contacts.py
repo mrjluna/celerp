@@ -30,7 +30,7 @@ from ui.components.currency import currency_combobox_td
 from ui.components.phone import phone_input_td, phone_head_items as _phone_head_items
 from ui.config import get_token as _token, get_role as _get_role
 from celerp.services.permissions import role_has_permission
-from ui.i18n import t, get_lang
+from ui.i18n import doc_ref_label, t, get_lang
 from ui.routes.reports import _date_filter_bar, _get_company, _parse_dates, _resolve_preset
 from ui.components.encode import call, css_color, EVENT, html_response, inert_media_type, js_value, safe_url, THIS
 
@@ -529,9 +529,8 @@ def _documents_tab(docs: list[dict], contact: dict | None = None, contact_id: st
         rows = []
         for d in sorted_docs:
             doc_id = d.get("entity_id") or d.get("id", "")
-            doc_num = d.get("doc_number") or doc_id
             rows.append(Tr(
-                Td(A(format_value(doc_num), href=f"/docs/{doc_id}", cls="table-link")),
+                Td(A(format_value(doc_ref_label(d)), href=f"/docs/{doc_id}", cls="table-link")),
                 Td(format_value(d.get("doc_type"), "badge", domain="doc_type")),
                 Td(format_value(str(d.get("issue_date") or "")[:10] or None)),
                 Td(format_value(d.get("total"), "money", d.get("currency")), cls="cell--number"),

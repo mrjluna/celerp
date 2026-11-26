@@ -8011,6 +8011,7 @@
   "fund.change_journal_hint": "ይህ ግቤት ወደ ሂሳብ ተመዝግቧል። ሲያስቀምጡ ግቤቱ ይሰረዛል እና ከታች በተመረጡት ፈንዶች ላይ እንደገና ይመዘገባል።",
   "fund.changed": "ፈንዱ ተቀይሯል። ግቤቱ ተሰርዞ በአዲሶቹ ፈንዶች ላይ እንደገና ተመዝግቧል።",
   "collection.status_succeeded": "ክፍያው በራስ-ሰር ተወስዷል። ክፍያው እስካሁን በዚህ መጠየቂያ ላይ ካልታየ፣ በ«ቅንብሮች > የመስመር ላይ ክፍያዎች» ውስጥ «ከክፍያ መጠየቂያ ጋር ያልተዛመዱ ክፍያዎች» ስር ያግኙት።",
+  "documents.unnumbered": "ቁጥር የሌለው",
   "doc.ordered": "Ordered",
   "documents.converted_from": "Converted from {ref}",
   "ai.warn_outside_message": "ይህ መልእክት ከኩባንያው ውጭ ላለ ሰው ይላካል፤ መልሶ መጥራት አይቻልም።",

@@ -49,7 +49,7 @@ PLUGIN_MANIFEST = {
             {
                 "group": "Manufacturing",
                 "key": "manufacturing",
-                "icon": "📊",
+                "icon": "chart-column",
                 "label": "Production Planning (MRP)",
                 "label_key": "manufacturing.demand_planning",
                 "href": "/manufacturing",
@@ -63,7 +63,7 @@ PLUGIN_MANIFEST = {
             {
                 "group": "Manufacturing",
                 "key": "work_in_progress",
-                "icon": "🏭",
+                "icon": "factory",
                 "label": "Work Orders",
                 "label_key": "manufacturing.work_in_progress",
                 "href": "/manufacturing/production",
@@ -74,7 +74,7 @@ PLUGIN_MANIFEST = {
             {
                 "group": "Manufacturing",
                 "key": "production_orders",
-                "icon": "📋",
+                "icon": "clipboard-list",
                 "label": "Production Orders",
                 "label_key": "documents.page_stock_orders",
                 "href": "/docs?type=production_order",

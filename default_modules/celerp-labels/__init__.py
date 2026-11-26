@@ -31,7 +31,7 @@ PLUGIN_MANIFEST = {
         "nav": {
             "group": "Inventory",
             "key": "labels",
-            "icon": "🏷",
+            "icon": "file-text",
             "label": "Labels",
             "label_key": "nav.labels",
             "href": "/settings/labels",
@@ -43,7 +43,7 @@ PLUGIN_MANIFEST = {
             "label": "Print Labels",
             "label_key": "labels.print_labels",
             "form_action": "/labels/print-bulk",
-            "icon": "🖨",
+            "icon": "printer",
             "action_type": "navigate",  # opens in new tab, not HTMX swap
         },
     },

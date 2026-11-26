@@ -27,11 +27,7 @@ _SKIPPED_DIRS = {"tests", "__pycache__", "fixtures", "vendor", "locales", "node_
 
 # Emoji (not counting the status text above) per UI source file, as of the icon helper's arrival.
 ALLOWED_IN_CODE: dict[str, int] = {
-    "default_modules/celerp-fixed-assets/__init__.py": 2,
-    "default_modules/celerp-labels/__init__.py": 2,
-    "default_modules/celerp-manufacturing/__init__.py": 3,
     "ui/components/shell.py": 2,
-    "ui/routes/settings_connectors.py": 7,
 }
 
 ALLOWED_IN_STRINGS: frozenset[str] = frozenset()

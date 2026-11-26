@@ -11871,12 +11871,13 @@ async function celerpCsvImport(input, entityId) {
             _doc_files_section("list" if is_list else "doc", entity_id, _enrich_doc_files(doc)),
             cls="doc-internal",
         ),
-        # --- GL Impact section (accounting permission only) ---
+        # --- GL Impact section (accounting permission only; a subscription template never posts,
+        # what it bills is on the documents it issues) ---
         (Div(id=_gl_impact_dom_id(entity_id),
              hx_get=f"{_base}/gl-impact",
              hx_trigger="load",
              hx_swap="outerHTML")
-         if role_has_permission(settings or {}, role, "view_financial_reports") else ""),
+         if role_has_permission(settings or {}, role, "view_financial_reports") and doc_type not in TEMPLATE_DOC_TYPES else ""),
         # --- History / Activity section ---
         Div(id=f"doc-history-{entity_id.replace(':', '-').replace('/', '-')}",
             hx_get=f"{_base}/history?page=1",

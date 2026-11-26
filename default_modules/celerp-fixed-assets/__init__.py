@@ -28,7 +28,7 @@ PLUGIN_MANIFEST = {
             {
                 "group": "Finance",
                 "key": "fixed_assets",
-                "icon": "🏢",
+                "icon": "building",
                 "label": "Fixed assets",
                 "label_key": "nav.fixed_assets",
                 "href": "/fixed-assets",
@@ -42,7 +42,7 @@ PLUGIN_MANIFEST = {
             {
                 "group": None,
                 "key": "my_assets",
-                "icon": "🔑",
+                "icon": "key",
                 "label": "My assets",
                 "label_key": "nav.my_assets",
                 "href": "/fixed-assets/mine",

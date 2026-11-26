@@ -8013,6 +8013,7 @@
   "fund.change_journal_hint": "This entry has posted. Saving voids it and posts it again on the funds chosen below.",
   "fund.changed": "Fund changed. The entry was voided and posted again on the new funds.",
   "collection.status_succeeded": "Charged automatically. If the payment is not on this invoice yet, find it under Payments not matched to an invoice in Settings, Online Payments.",
+  "documents.unnumbered": "Unnumbered",
   "ai.warn_outside_message": "This message goes to someone outside the company and cannot be called back.",
   "ai.warn_selection_size": "This changes {count} records.",
   "ai.warn_selection_size_one": "This changes 1 record.",
