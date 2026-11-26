@@ -189,10 +189,10 @@ def linked_files(own: list[dict], docs: list[dict]) -> list[dict]:
 _UPLOAD_ZONE_JS = """
 (function(){
   var script=document.currentScript;
-  var cfg=JSON.parse(script.dataset.cfg);
+  var CFG=JSON.parse(script.dataset.cfg);
   if(!window._celerpDZ) window._celerpDZ=new Map();
   function init(){
-    var zone=document.getElementById(cfg.id);
+    var zone=document.getElementById(CFG.id);
     if(!zone||zone._dzInited) return;
     zone._dzInited=true;
     var input=zone.querySelector('[data-upload-input]');
@@ -208,10 +208,10 @@ _UPLOAD_ZONE_JS = """
       var fd=new FormData();
       fd.append('file',file);
       try {
-        var uploaded=await celerpFilesFetch(cfg.sid,cfg.url,{method:'POST',body:fd},null,notice);
+        var uploaded=await celerpFilesFetch(CFG.sid,CFG.url,{method:'POST',body:fd},null,notice);
         if(uploaded&&notice) notice.textContent=zone.dataset.uploadedText;
       } catch(error) {
-        celerpFilesNotice(cfg.sid,'text/plain',zone.dataset.uploadFailedText,notice);
+        celerpFilesNotice(CFG.sid,'text/plain',zone.dataset.uploadFailedText,notice);
       } finally {
         busy=false;
         input.value='';
@@ -227,18 +227,18 @@ _UPLOAD_ZONE_JS = """
     [input,camera].forEach(function(picker){
       picker.addEventListener('change',function(){upload(picker.files[0]);});
     });
-    zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add(cfg.active);});
-    zone.addEventListener('dragleave',function(){zone.classList.remove(cfg.active);});
+    zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add(CFG.active);});
+    zone.addEventListener('dragleave',function(){zone.classList.remove(CFG.active);});
     zone.addEventListener('drop',function(e){
       e.preventDefault();
-      zone.classList.remove(cfg.active);
+      zone.classList.remove(CFG.active);
       upload(e.dataTransfer.files[0]);
     });
   }
-  if(!cfg.localNotice) {
-    window._celerpDZ.set(cfg.sid,init);
+  if(!CFG.localNotice) {
+    window._celerpDZ.set(CFG.sid,init);
     document.addEventListener('htmx:afterSettle',function(e){
-      if(e.detail.target.id==='files-section-'+cfg.sid) init();
+      if(e.detail.target.id==='files-section-'+CFG.sid) init();
     });
   }
   init();

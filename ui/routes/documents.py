@@ -7127,11 +7127,11 @@ def _receive_rows(line_items: list, unit_map: dict) -> list:
         lambda li: li.get("purchase_unit") or li.get("unit") or "",
         t("documents.already_received"),
         unit_map,
-        note=lambda li, _has_some: " · ".join((
+        note=lambda li, has_some: " · ".join((
             f'{t("doc.ordered")}: {float(li.get("quantity") or 0):g}',
             t("documents.received_total", amount=f'{float(li.get("quantity_received") or 0):g}'),
             t("documents.remaining_amount", amount=f'{_receive_remaining(li):g}'),
-        )),
+        )) if has_some else "",
     )
 
 
