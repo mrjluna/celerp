@@ -55,7 +55,7 @@ from celerp.output.document_context import prepare_document_output
 from ui.components.activity import EVENT_TYPE_LABELS
 from ui.components.notes import notes_tab as _shared_notes_tab, note_edit_form as _shared_note_edit_form
 from ui.components.cards import section_header
-from ui.components.files import files_error, files_section as _shared_doc_files_section, files_session_expired
+from ui.components.files import file_upload_zone, files_error, files_section as _shared_doc_files_section, files_session_expired
 from ui.components.encode import as_js, call, EVENT, html_response, js_value, raw_html, safe_url, THIS, to_markup
 from ui.components.doc_money import ATTRS as DOC_MONEY_ATTRS, redraw_trigger as doc_money_redraw
 from ui.components.preview_confirm import FORM_ATTRS as CONFIRMS_PREVIEW, PREVIEW_ATTRS, binding_input, confirmed_binding
@@ -856,14 +856,25 @@ def _doc_filters(state: dict[str, str], date_from: str, date_to: str, preset: st
     caption = t(_DOC_TYPE_SEARCH_LABELS.get(doc_type, "documents.search_all"), lang)
     # A phone shows only a short placeholder; the box's name carries the caption and what it searches.
     search.attrs["aria-label"] = f"{caption}: {placeholder.rstrip('. …')}"
+    po_status_filter = []
+    hidden_keys = _DOC_PANEL_KEYS
+    if doc_type == "purchase_order":
+        choices = [("", t("doc.all", lang))]
+        for kind in _DOC_CARDS[doc_type][0]:
+            card = _DOC_CARD_KINDS[kind]
+            choices.append((dict(card.link)["status"], t(card.label, lang)))
+        po_status_filter.append(select_field("status", t("doc.status", lang), choices,
+                                            state.get("status", ""), lang=lang, on_change=_DOC_FILTER_ON_CHANGE))
+        hidden_keys += ("status", "status_in", "all_issued", "view")
     return filter_panel(
         "/docs",
         filter_field(caption, search, field_id="search-input", wide=True),
         select_field("accounting_sync", t("filter.records", lang),
                      [(choice, t(title, lang)) for choice, title in _ACCOUNTING_SYNC_CHOICES],
                      state.get("accounting_sync", ""), lang=lang, on_change=_DOC_FILTER_ON_CHANGE),
+        *po_status_filter,
         *period,
-        hidden={k: v for k, v in state.items() if k not in _DOC_PANEL_KEYS},
+        hidden={k: v for k, v in state.items() if k not in hidden_keys},
         reset_href="/docs" + (f"?{urlencode({'type': doc_type})}" if doc_type else ""),
         show_apply=preset == "custom", lang=lang, panel_id="doc-filters",
     )
@@ -1218,7 +1229,6 @@ def _doc_type_new_label(doc_type: str, lang: str = "en") -> str:
     if key:
         return t(key, lang)
     return t("btn.new_document", lang)
-_DOC_STATUSES = ["draft", "sent", "paid", "overdue", "void", "open", "awaiting_payment", "converted", "expired", "bill", "final"]
 
 # Singular labels for doc detail pages / breadcrumbs
 # Singular labels for doc detail pages / breadcrumbs. Values are i18n keys resolved at
@@ -7105,14 +7115,23 @@ def _line_action_rows(line_items: list, available, unit, none_left: str, unit_ma
     return rows
 
 
+def _receive_remaining(line: dict) -> float:
+    return max(0.0, float(line.get("quantity") or 0) - float(line.get("quantity_received") or 0))
+
+
 def _receive_rows(line_items: list, unit_map: dict) -> list:
     """Receive Goods rows: a line still awaiting goods offers what it awaits, in its purchase unit."""
     return _line_action_rows(
         line_items,
-        lambda li: max(0.0, float(li.get("quantity") or 0) - float(li.get("quantity_received") or 0)),
+        _receive_remaining,
         lambda li: li.get("purchase_unit") or li.get("unit") or "",
         t("documents.already_received"),
         unit_map,
+        note=lambda li, _has_some: " · ".join((
+            f'{t("doc.ordered")}: {float(li.get("quantity") or 0):g}',
+            t("documents.received_total", amount=f'{float(li.get("quantity_received") or 0):g}'),
+            t("documents.remaining_amount", amount=f'{_receive_remaining(li):g}'),
+        )),
     )
 
 
@@ -8077,7 +8096,9 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
         and not doc.get("finalized")
         and not (_inv_ref and not _inv_ref.upper().startswith("PF"))
     )
-    if not is_list and (status == "draft" or _sent_but_unissued):
+    _received_po = (doc_type == "purchase_order" and not doc.get("finalized")
+                    and status in ("partially_received", "received"))
+    if not is_list and (status == "draft" or _sent_but_unissued or _received_po):
         _finalize_labels = {
             "invoice": t("documents.finalize_label_invoice"),
             "purchase_order": t("documents.finalize_label_purchase_order"),
@@ -8103,7 +8124,7 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
         if _can_finalize and not suppress_doc_actions:
             action_btns_left.append(
                 Button(finalize_label,
-                       onclick=as_js(persist_then_post(f"/docs/{entity_id}/action/finalize")),
+                       **_on_lines(f"/docs/{entity_id}/action/finalize"),
                        title=finalize_tip, cls="btn btn--primary")
             )
     if status not in ("void", "draft", "closed") and _can_finalize and not suppress_doc_actions:
@@ -8180,6 +8201,7 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
     _list_sent = bool(list_fact(doc, "sent_at"))
     _can_send = (
         not suppress_doc_actions
+        and _can_edit
         and ((not is_list and doc_type not in NO_SEND_DOC_TYPES) or _list_sendable)
     )
     # Share is independent of Send's status gates (a paid invoice is a receipt): it is
@@ -9023,41 +9045,8 @@ def _doc_detail(doc: dict, locations: list | None = None, ledger: list | None = 
         # AI dropzone — only on draft bills/expenses when celerp-ai is loaded
         from celerp.modules.slots import get as _get_slots_ai
         _ai_loaded = any(c.get("key") == "ai" for c in _get_slots_ai("nav"))
-        _ai_dropzone: list = []
-        if doc_type in ("bill", "expense") and _ai_loaded:
-            _ai_dropzone = [
-                Div(
-                    Div(icon("sparkles"), cls="ai-dropzone__icon"),
-                    Div(t("documents.ai_dropzone_text"), cls="ai-dropzone__text"),
-                    Div(t("doc.powered_by_celerp_ai_operator"), cls="ai-dropzone__sub"),
-                    cls="ai-dropzone",
-                    id=f"ai-dropzone-{entity_id}",
-                    title=t("documents.ai_dropzone_tip"),
-                ),
-                Script("""
-(function() {
-  var CFG = JSON.parse(document.currentScript.dataset.cfg);
-  var EID = CFG.eid;
-  var dz = document.getElementById('ai-dropzone-' + EID);
-  if (!dz) return;
-  function handleFile(file) {
-    var fd = new FormData(); fd.append('file', file);
-    dz.classList.add('ai-dropzone--over');
-    celerpFetch('/docs/' + EID + '/files', {method:'POST',body:fd})
-      .then(function(r) { dz.classList.remove('ai-dropzone--over'); })
-      .catch(function() { dz.classList.remove('ai-dropzone--over'); });
-  }
-  dz.addEventListener('click', function() {
-    var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.pdf,image/*';
-    inp.onchange = function() { if (inp.files.length) handleFile(inp.files[0]); };
-    inp.click();
-  });
-  dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('ai-dropzone--over'); });
-  dz.addEventListener('dragleave', function() { dz.classList.remove('ai-dropzone--over'); });
-  dz.addEventListener('drop', function(e) { e.preventDefault(); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
-})();
-""", data_cfg=js_value({'eid': entity_id})),
-            ]
+        _ai_dropzone = ([file_upload_zone(entity_id, f"/docs/{entity_id}/files", ai=True)]
+                        if doc_type in ("bill", "expense") and _ai_loaded else [])
 
         # Scan-bar wording follows what a scan actually does for this (type, state): a finalized
         # audit's manifest is locked, so scanning checks items OFF the list (it never adds); a draft
@@ -11175,9 +11164,14 @@ async function celerpCsvImport(input, entityId) {
         # They do NOT use fulfill-lines; the toolbar posts to /receive instead.
         _inbound_receivable = (
             _is_vendor_doc
-            and doc_type in ("bill", "consignment_in")
+            and doc_type in ("bill", "consignment_in", "purchase_order")
             and status in RECEIVABLE_STATUSES[doc_type]
             and bool(line_items)
+            and (doc_type != "purchase_order" or (
+                role_has_permission(settings or {}, role, "fulfill_documents")
+                and status in {"sent", "partially_received"}
+                and any(_receive_remaining(line) > 1e-9 for line in line_items)
+            ))
         )
         _fin_show_fulfill = _fulfillable_status or _inbound_receivable
         # Reservable surface (manual reservation): an invoice/memo in a reservable status, OR a
@@ -11648,7 +11642,8 @@ async function celerpCsvImport(input, entityId) {
     # Lists show the friendly, type-aware lifecycle label (Sent / In transit / Counting / Converted /
     # Adjusted / ...), matching the page title, not the raw spine enum. Status is lifecycle-driven,
     # so it is read-only here for lists.
-    _status_field = P(_list_status_label(doc), cls="meta-value") if is_list else _cell("status", status)
+    _status_field = P(_list_status_label(doc), cls="meta-value") if is_list else (
+        doc_status_badge(doc_type, status) if doc_type == "purchase_order" else _cell("status", status))
     _contact_rows.append(Div(Div(t("doc.status"), cls="form-label"), _status_field, *_slot_badges, cls="form-group"))
     # A converted quotation points at the document it became.
     _converted_to = list_fact(doc, "converted_to") if is_list else None
@@ -11668,6 +11663,10 @@ async function celerpCsvImport(input, entityId) {
         if not is_list and doc_type not in TEMPLATE_DOC_TYPES and outstanding_value is not None:
             _outstanding_hint = P(t("doc.memo_outstanding_hint"), cls="form-hint") if doc_type == "memo" else ""
             _contact_rows.append(Div(Div(t("doc.outstanding"), cls="form-label"), Span(fmt_money(float(outstanding_value or 0), currency), id="doc-outstanding", cls="meta-value", **DOC_MONEY_ATTRS), _outstanding_hint, cls="form-group"))
+
+    source_ref = doc.get("source_po_ref") or doc.get("source_proforma_ref")
+    if source_ref == ref or (is_draft and doc.get("revert_count")):
+        source_ref = None
 
     _is_sub_template = doc_type in ("subscription_invoice", "subscription_po")
 
@@ -11708,6 +11707,8 @@ async function celerpCsvImport(input, entityId) {
                 Div(format_value(ref, "text"), title=t("doc.ref_draft_tooltip"),
                     cls="editable-cell editable-cell--locked") if is_draft
                 else _cell("ref_id", ref),
+                Div(t("documents.converted_from", ref=source_ref), cls="meta-value meta-value--muted")
+                if source_ref else None,
                 cls="meta-cell"),
             # Sales documents carry the customer's reference; purchasing ones the vendor's own.
             Div(Div(t("label.reference") + ":" if doc_type in ("purchase_order", "bill", "consignment_in", "debit_note")
@@ -12010,6 +12011,10 @@ _DOC_CARD_KINDS: dict[str, _DocCard] = {
     "not_restocked": _DocCard("documents.not_restocked", "orange", (("not_restocked", "1"),), "not_restocked_count"),
     "not_stocked": _DocCard("documents.not_stocked_goods", "orange", (("not_stocked", "1"),), "not_stocked_count"),
     "sent": _DocCard("doc.sent", "blue", (("status", "sent"),)),
+    "partially_received": _DocCard("enum.doc_status.partially_received", "orange", (("status", "partially_received"),)),
+    "received": _DocCard("enum.doc_status.received", "green", (("status", "received"),)),
+    "partial_returned": _DocCard("enum.doc_status.partial_returned", "orange", (("status", "partial_returned"),)),
+    "returned": _DocCard("enum.doc_status.returned", "gray", (("status", "returned"),)),
     "open": _DocCard("connectors.open", "blue", (("status_in", "awaiting_payment,final,partial,sent"),)),
     "converted": _DocCard("status.converted", "green", (("status", "converted"),)),
     "void": _DocCard("enum.doc_status.void", "gray", (("status", "void"),)),
@@ -12027,7 +12032,7 @@ _DOC_CARDS: dict[str, tuple[tuple[str, ...], str | None]] = {
     "debit_note": (("draft", "all_issued", "void"), None),
     "memo": (("draft", "all_issued", "overdue", "converted", "void"), None),
     "consignment_in": (("draft", "all_issued", "overdue", "converted", "void"), None),
-    "purchase_order": (("draft", "sent", "void"), None),
+    "purchase_order": (("draft", "sent", "partially_received", "received", "partial_returned", "returned", "void"), None),
     "production_order": (("all", "draft", "open", "void"), None),
     "typed": (("all", "draft", "awaiting_payment", "paid", "overdue", "void"), "status"),
 }

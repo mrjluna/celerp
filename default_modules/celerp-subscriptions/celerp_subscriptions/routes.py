@@ -644,7 +644,8 @@ def _build_router() -> APIRouter:
             f in changes and shown(f, changes[f]) != shown(f, state.get(f)) for f in PLACING_FIELDS
         ):
             raise HTTPException(status_code=409, detail=t("subscriptions.err_schedule_claimed"))
-        if sent.get("auto_send") and billing.doc_kind(state) in NO_SEND_DOC_TYPES:
+        if sent.get("auto_send") and (billing.doc_kind(state) in NO_SEND_DOC_TYPES
+                                       or billing.doc_kind(state) == "purchase_order"):
             raise HTTPException(status_code=422, detail=t("subscriptions.err_send_purchase"))
         if changes.get("cancel_at_period_end"):
             # Stored as the last period kept: the current one, or a later one already billed or

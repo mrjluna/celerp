@@ -143,7 +143,7 @@ def is_shareable(entity_type: str, state: dict) -> bool:
 # Bills and consignment_in are internal receiving documents - never sent to external parties.
 # Purchase orders are outbound to vendors and DO need send/mark-as-sent.
 # Production orders are internal demand (invoice-to-self) - never sent to a customer.
-NO_SEND_DOC_TYPES: frozenset[str] = frozenset({"bill", "consignment_in", "purchase_order", "production_order"})
+NO_SEND_DOC_TYPES: frozenset[str] = frozenset({"bill", "consignment_in", "production_order"})
 
 # Documents whose issue posts their stored total to the books. Once issued, a line can only be
 # removed from one through Revert to Draft, which voids that entry and posts the new total on

@@ -56,14 +56,14 @@ FILES_PAGE_SIZE = 20
 # upload controls stay as they were. An htmx write that errors is shown the same way.
 FILES_JS = """
 if(!window.celerpFilesFetch){
-  window.celerpFilesNotice=function(sid,type,body){
-    var n=document.getElementById('files-notice-'+sid);
+  window.celerpFilesNotice=function(sid,type,body,notice){
+    var n=notice||document.getElementById('files-notice-'+sid);
     if(!n) return;
     n.textContent='';
     if((type||'').indexOf('text/html')===0) n.replaceChildren(celerpFragment(body));
     else n.textContent=body.trim().length&&body.length<=300?body.trim():window.__shellI18n.requestFailed;
   };
-  window.celerpFilesFetch=function(sid,url,opts,refresh){
+  window.celerpFilesFetch=function(sid,url,opts,refresh,notice){
     var sec=document.getElementById('files-section-'+sid);
     var scope=sec&&sec.closest('[hx-headers]');
     // Carry the headers the page sets for its htmx requests; celerpFetch makes it an htmx request.
@@ -72,13 +72,14 @@ if(!window.celerpFilesFetch){
     return celerpFetch(url,opts)
       .then(function(r){return !(r.ok&&refresh)?r:celerpFetch(refresh,{headers:headers});})
       .then(function(r){return r.text().then(function(body){
-        if(!r.ok){window.celerpFilesNotice(sid,r.headers.get('Content-Type'),body);return;}
+        if(!r.ok){window.celerpFilesNotice(sid,r.headers.get('Content-Type'),body,notice);return false;}
         var cur=document.getElementById('files-section-'+sid);
         if(!cur){location.reload();return;}
         cur.replaceWith(celerpFragment(body));
         var ns=document.getElementById('files-section-'+sid);
         if(ns&&window.htmx) htmx.process(ns);
         if(window._celerpDZ&&window._celerpDZ.has(sid)) window._celerpDZ.get(sid)();
+        return true;
       });});
   };
   // A file's tag or description, from the field el, sent as a file write.
@@ -183,6 +184,96 @@ def linked_files(own: list[dict], docs: list[dict]) -> list[dict]:
                                "_no_delete": True})
 
     return result
+
+
+_UPLOAD_ZONE_JS = """
+(function(){
+  var script=document.currentScript;
+  var cfg=JSON.parse(script.dataset.cfg);
+  if(!window._celerpDZ) window._celerpDZ=new Map();
+  function init(){
+    var zone=document.getElementById(cfg.id);
+    if(!zone||zone._dzInited) return;
+    zone._dzInited=true;
+    var input=zone.querySelector('[data-upload-input]');
+    var camera=zone.querySelector('[data-camera-input]');
+    var text=zone.querySelector('.file-drop-text');
+    var notice=zone.querySelector('[role=status]');
+    var busy=false;
+    async function upload(file){
+      if(!file||busy) return;
+      busy=true;
+      if(notice) notice.textContent='';
+      text.textContent=zone.dataset.uploadingText;
+      var fd=new FormData();
+      fd.append('file',file);
+      try {
+        var uploaded=await celerpFilesFetch(cfg.sid,cfg.url,{method:'POST',body:fd},null,notice);
+        if(uploaded&&notice) notice.textContent=zone.dataset.uploadedText;
+      } catch(error) {
+        celerpFilesNotice(cfg.sid,'text/plain',zone.dataset.uploadFailedText,notice);
+      } finally {
+        busy=false;
+        input.value='';
+        camera.value='';
+        text.textContent=zone.dataset.dropText;
+      }
+    }
+    zone.addEventListener('click',function(e){
+      if(busy) return;
+      if(e.target.closest('.file-camera-btn')) camera.click();
+      else if(e.target===zone||e.target.closest('.file-drop-text,.file-drop-icon,.file-drop-hint')) input.click();
+    });
+    [input,camera].forEach(function(picker){
+      picker.addEventListener('change',function(){upload(picker.files[0]);});
+    });
+    zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add(cfg.active);});
+    zone.addEventListener('dragleave',function(){zone.classList.remove(cfg.active);});
+    zone.addEventListener('drop',function(e){
+      e.preventDefault();
+      zone.classList.remove(cfg.active);
+      upload(e.dataTransfer.files[0]);
+    });
+  }
+  if(!cfg.localNotice) {
+    window._celerpDZ.set(cfg.sid,init);
+    document.addEventListener('htmx:afterSettle',function(e){
+      if(e.detail.target.id==='files-section-'+cfg.sid) init();
+    });
+  }
+  init();
+})();
+"""
+
+
+def file_upload_zone(entity_id: str, base_url: str, *, ai: bool = False) -> FT:
+    """Use the same upload, validation response and camera controls in both drop zones."""
+    sid = _safe_id(entity_id)
+    zone_id = f"ai-dropzone-{sid}" if ai else f"file-drop-zone-{sid}"
+    label = t("documents.ai_dropzone_text") if ai else t("msg.drop_files_here")
+    return Div(
+        Div(icon("sparkles" if ai else "folder"), cls="file-drop-icon" + (" ai-dropzone__icon" if ai else "")),
+        Div(label, cls="file-drop-text" + (" ai-dropzone__text" if ai else "")),
+        Div(t("doc.powered_by_celerp_ai_operator"), cls="ai-dropzone__sub file-drop-hint") if ai else None,
+        Input(type="file", id=f"ai-upload-input-{sid}" if ai else f"file-drop-input-{sid}",
+              data_upload_input="1", accept=".pdf,image/*" if ai else
+              "image/*,video/*,.pdf,.doc,.docx,.txt", style="display:none"),
+        Button(t("msg.take_photo"), type="button", cls="btn btn--sm btn--secondary file-camera-btn"),
+        Input(type="file", id=f"ai-camera-input-{sid}" if ai else f"file-camera-input-{sid}",
+              data_camera_input="1", accept="image/*", capture="environment", style="display:none"),
+        Div(role="status", cls="files-notice") if ai else None,
+        Script(_UPLOAD_ZONE_JS, data_cfg=js_value({
+            "sid": sid, "url": base_url, "id": zone_id, "localNotice": ai,
+            "active": "ai-dropzone--over" if ai else "file-drop-zone--active",
+        })),
+        cls="ai-dropzone" if ai else "file-drop-zone",
+        id=zone_id,
+        title=t("documents.ai_dropzone_tip") if ai else None,
+        data_drop_text=label,
+        data_uploading_text=t("msg.uploading"),
+        data_uploaded_text=t("msg.file_uploaded"),
+        data_upload_failed_text=t("msg.upload_failed"),
+    )
 
 
 def files_section(
@@ -537,74 +628,6 @@ def files_section(
             )
         pagination = Div(*pager_items, cls="pagination", style="margin-top:8px;display:flex;gap:4px;")
 
-    # ── Upload dropzone ───────────────────────────────────────────────────────
-    # Named init function keyed by sid so it survives outerHTML swaps.
-    # After each swap (htmx or plain fetch) we re-call it on the new zone.
-    # The global _celerpDZ registry lets the new section call its own init
-    # once inserted (htmx:afterSettle fires for hx-* swaps; for plain fetch
-    # swaps we call it directly after setting outerHTML).
-    drop_js = """
-(function(){var CFG=JSON.parse(document.currentScript.dataset.cfg);
-  var SID=CFG.sid;
-  if(!window._celerpDZ) window._celerpDZ=new Map();
-  function initDropZone(){
-    var zone=document.getElementById('file-drop-zone-' + SID);
-    var inp=document.getElementById('file-drop-input-' + SID);
-    if(!zone||!inp||zone._dzInited) return;
-    zone._dzInited=true;
-    function upload(file){
-      var fd=new FormData(); fd.append('file',file);
-      var txt=zone.querySelector('.file-drop-text');
-      if(txt) txt.textContent=zone.dataset.uploadingText;
-      celerpFilesFetch(SID,CFG.url,{method:'POST',body:fd},null)
-        .catch(function(e){alert(zone.dataset.uploadFailedText);})
-        .then(function(){if(txt&&document.body.contains(zone)) txt.textContent=zone.dataset.dropText;});
-    }
-    zone.addEventListener('click',function(e){
-      if(e.target===zone||e.target.closest('.file-drop-text,.file-drop-icon,.file-drop-hint')) inp.click();
-    });
-    inp.addEventListener('change',function(){ if(inp.files.length) upload(inp.files[0]); });
-    var cam=document.getElementById('file-camera-input-' + SID);
-    var camBtn=zone.querySelector('.file-camera-btn');
-    if(cam&&camBtn){
-      camBtn.addEventListener('click',function(e){e.preventDefault(); cam.click();});
-      cam.addEventListener('change',function(){ if(cam.files.length) upload(cam.files[0]); });
-    }
-    zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('file-drop-zone--active');});
-    zone.addEventListener('dragleave',function(){zone.classList.remove('file-drop-zone--active');});
-    zone.addEventListener('drop',function(e){
-      e.preventDefault(); zone.classList.remove('file-drop-zone--active');
-      if(e.dataTransfer.files.length) upload(e.dataTransfer.files[0]);
-    });
-  }
-  window._celerpDZ.set(SID,initDropZone);
-  initDropZone();
-  document.addEventListener('htmx:afterSettle',function(e){
-    if(e.detail&&e.detail.target&&e.detail.target.id==='files-section-' + SID) initDropZone();
-  });
-})();
-"""
-
-    upload_zone = Div(
-        Div(icon("folder"), cls="file-drop-icon"),
-        Div(t("msg.drop_files_here"), cls="file-drop-text"),
-        Input(type="file", id=f"file-drop-input-{sid}",
-              accept="image/*,video/*,.pdf,.doc,.docx,.txt", style="display:none"),
-        # On a phone this opens the camera, so a receipt is photographed straight into
-        # the document; desktop browsers open the file picker for images.
-        Button(t("msg.take_photo"), type="button", cls="btn btn--sm btn--secondary file-camera-btn"),
-        Input(type="file", id=f"file-camera-input-{sid}", accept="image/*",
-              capture="environment", style="display:none"),
-        Script(drop_js, data_cfg=js_value({"sid": sid, "url": str(base_url)})),
-        cls="file-drop-zone",
-        id=f"file-drop-zone-{sid}",
-        # Translated strings the JS above reads via dataset instead of splicing
-        # into the script source (R2).
-        data_drop_text=t("msg.drop_files_here"),
-        data_uploading_text=t("msg.uploading"),
-        data_upload_failed_text=t("msg.upload_failed"),
-    )
-
     children = [
         section_header(title or t("label.files"), icon_name="paperclip"),
         filter_bar,
@@ -618,7 +641,7 @@ def files_section(
     if pagination:
         children.append(pagination)
     if can_upload:
-        children.append(upload_zone)
+        children.append(file_upload_zone(entity_id, base_url))
 
     # A refused write leaves the section as it is and says why in the notice (celerpFilesFetch, and
     # the htmx error handler in FILES_JS); data-quiet-error stops the shell's general error toast.

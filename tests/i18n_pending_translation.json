@@ -12,7 +12,18 @@
     "th",
     "vi"
   ],
-  "keys": {},
+  "keys": {
+    "doc.ordered": {
+      "en": "Ordered",
+      "params": []
+    },
+    "documents.converted_from": {
+      "en": "Converted from {ref}",
+      "params": [
+        "ref"
+      ]
+    }
+  },
   "modules": {
     "celerp-fixed-assets": {},
     "celerp-labels": {}

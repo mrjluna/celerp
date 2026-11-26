@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from celerp.models.projections import Projection, shown_state
 from celerp_contacts.references import party_name_sql
 
-_SEARCH_FIELDS = ("doc_number", "ref_id", "contact_name", "contact_id", "ref")
+_SEARCH_FIELDS = ("doc_number", "ref_id", "contact_name", "contact_id", "ref", "source_po_ref", "source_proforma_ref")
 
 
 def doc_q_clause(q: str | None):
